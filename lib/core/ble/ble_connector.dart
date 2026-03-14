@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
+import '../providers/ble_provider.dart';
 import 'ble_models.dart';
-import 'ble_scanner.dart' show bleProvider;
 
 /// BLE connector — handles connect + PEER_ROLE handshake.
 class BleConnector {
@@ -90,10 +90,8 @@ class BleConnector {
 
 /// Riverpod provider for the connector.
 final bleConnectorProvider = Provider<BleConnector>((ref) {
-  final ble = ref.watch(bleProvider);
+  final ble = ref.watch(bleInstanceProvider);
   final connector = BleConnector(ble);
   ref.onDispose(() => connector.dispose());
   return connector;
 });
-
-// bleProvider is defined in ble_scanner.dart — import from there.

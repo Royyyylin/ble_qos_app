@@ -4,6 +4,7 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_uuids.dart';
+import '../providers/ble_provider.dart';
 import 'ble_models.dart';
 
 /// BLE scanner — filters by QoS Service UUID (0x1820).
@@ -47,14 +48,9 @@ class BleScanner {
   }
 }
 
-/// Riverpod provider for the BLE instance.
-final bleProvider = Provider<FlutterReactiveBle>((ref) {
-  return FlutterReactiveBle();
-});
-
 /// Riverpod provider for the scanner.
 final bleScannerProvider = Provider<BleScanner>((ref) {
-  final ble = ref.watch(bleProvider);
+  final ble = ref.watch(bleInstanceProvider);
   final scanner = BleScanner(ble);
   ref.onDispose(() => scanner.dispose());
   return scanner;
