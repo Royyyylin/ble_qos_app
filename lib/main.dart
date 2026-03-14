@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/device_list/device_list_screen.dart';
+import 'features/engineer/engineer_screen.dart';
 import 'features/home/ed_home_screen.dart';
 import 'features/home/gw_home_screen.dart';
+import 'features/installer/installer_screen.dart';
+import 'features/patrol/patrol_screen.dart';
+import 'features/settings/settings_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: BleQosApp()));
@@ -25,6 +29,10 @@ class BleQosApp extends StatelessWidget {
         '/': (_) => const DeviceListScreen(),
         '/gw-home': (_) => const GwHomeScreen(),
         '/ed-home': (_) => const EdHomeScreen(),
+        '/patrol': (_) => const PatrolScreen(),
+        '/installer': (_) => const InstallerScreen(),
+        '/engineer': (_) => const EngineerScreen(),
+        '/settings': (_) => const SettingsScreen(),
       },
     );
   }
