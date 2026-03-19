@@ -32,9 +32,10 @@ class AuthSession {
   bool get isElevated => _role != AuthRole.normal;
 
   void elevate(AuthRole role, {void Function()? onExpired}) {
+    final now = DateTime.now();
     _role = role;
-    _elevatedAt = DateTime.now();
-    _lastActivity = DateTime.now();
+    _elevatedAt = now;
+    _lastActivity = now;
     _onExpired = onExpired;
     _startTimers();
   }

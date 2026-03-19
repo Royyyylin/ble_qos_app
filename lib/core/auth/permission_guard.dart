@@ -22,10 +22,10 @@ class PermissionGuard {
   static bool canWrite(AuthRole role, GattAction action) {
     return switch (action) {
       GattAction.peerRole => true,
-      GattAction.ctrl || GattAction.gwCfg || GattAction.ping =>
+      // Control actions — maintenance+ (spec §3.2)
+      GattAction.ctrl || GattAction.gwCfg || GattAction.ping || GattAction.cmdReboot =>
         role == AuthRole.maintenance || role == AuthRole.engineer,
-      GattAction.cmdReboot =>
-        role == AuthRole.maintenance || role == AuthRole.engineer,
+      // Admin actions — engineer only (spec §3.2)
       GattAction.mode || GattAction.role || GattAction.engUnlock || GattAction.engPinSet =>
         role == AuthRole.engineer,
       _ => false,

@@ -3,6 +3,12 @@ import 'dart:typed_data';
 
 /// Parsed manufacturer specific data from BLE advertising — spec §4.5.
 class ManufacturerData {
+  /// Role constants matching firmware PEER_ROLE definitions.
+  static const int roleUnprovisioned = 0x00;
+  static const int roleEndDevice = 0x01;
+  static const int roleGateway = 0x02;
+  static const int roleCentralController = 0x04;
+
   final int protocolVersion;
   final int role;
   final int networkId;
@@ -17,10 +23,10 @@ class ManufacturerData {
     this.haRole,
   });
 
-  bool get isGateway => role == 2;
-  bool get isEndDevice => role == 1;
-  bool get isCC => role == 4;
-  bool get isUnprovisioned => role == 0;
+  bool get isGateway => role == roleGateway;
+  bool get isEndDevice => role == roleEndDevice;
+  bool get isCC => role == roleCentralController;
+  bool get isUnprovisioned => role == roleUnprovisioned;
 
   /// Parse manufacturer data payload. Returns null if too short.
   /// Format: [protocol:1][role:1][network_id:2LE][ed_count:1?][ha_role:1?]
