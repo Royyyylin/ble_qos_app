@@ -21,10 +21,14 @@ class ConnectedDeviceNotifier extends StateNotifier<ConnectedDevice?> {
   ConnectedDeviceNotifier() : super(null);
 
   void connect(ScannedDevice device) {
+    // Derive mode from name prefix (v1 compat, v2 uses roleLabel)
+    final mode = device.name.startsWith('GW-')
+        ? ConnectionMode.gwAggregate
+        : ConnectionMode.edDirect;
     state = ConnectedDevice(
       id: device.id,
       name: device.name,
-      mode: device.mode,
+      mode: mode,
     );
   }
 

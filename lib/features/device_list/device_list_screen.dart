@@ -5,7 +5,6 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/ble/ble_connector.dart';
 import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
-import '../../core/domain/connection_mode.dart';
 import '../../core/providers/device_provider.dart';
 import 'device_tile.dart';
 
@@ -55,7 +54,8 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
     ref.read(connectedDeviceProvider.notifier).connect(device);
     ref.read(bleConnectorProvider).connect(device.id);
 
-    final route = device.mode == ConnectionMode.gwAggregate
+    // Derive mode from name prefix (v1 compat, v2 uses roleLabel)
+    final route = device.name.startsWith('GW-')
         ? '/gw-home'
         : '/ed-home';
     Navigator.of(context).pushReplacementNamed(route);

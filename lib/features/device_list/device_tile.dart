@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ble/ble_models.dart';
-import '../../core/domain/connection_mode.dart';
 
 /// List tile for a discovered BLE device.
 class DeviceTile extends StatelessWidget {
@@ -12,7 +11,8 @@ class DeviceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isGw = device.mode == ConnectionMode.gwAggregate;
+    // Derive mode from name prefix (v1 compat, v2 uses roleLabel)
+    final isGw = device.name.startsWith('GW-');
     return ListTile(
       leading: Icon(
         isGw ? Icons.router : Icons.sensors,
