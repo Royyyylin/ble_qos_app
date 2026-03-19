@@ -1,5 +1,9 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
@@ -22,8 +26,36 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   bool _scanning = false;
   BleScanner? _scanner;
 
+  @override
+  void initState() {
+    super.initState();
+    // Auto-start scan on screen load
+    Future.microtask(() => _startScan());
+  }
+
   Future<void> _startScan() async {
     try {
+      // Request BLE permissions on Android
+      if (Platform.isAndroid) {
+        final statuses = await [
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+        ].request();
+        if (statuses[Permission.bluetoothScan] != PermissionStatus.granted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Bluetooth scan permission denied')),
+            );
+          }
+          return;
+        }
+      }
+
+      // Ensure Bluetooth adapter is on
+      if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
+        await FlutterBluePlus.turnOn();
+      }
+
       _scanner = ref.read(bleScannerProvider);
       _scanner!.start();
       if (mounted) setState(() => _scanning = true);

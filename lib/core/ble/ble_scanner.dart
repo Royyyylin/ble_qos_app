@@ -32,7 +32,7 @@ class BleScanner {
   List<ScannedDevice> get currentDevices => _devices.values.toList();
   bool get isScanning => _scanning;
 
-  void start({bool dutyCycle = true}) {
+  void start({bool dutyCycle = false}) {
     _devices.clear();
     _scanSub?.cancel();
     _statusTimer?.cancel();
