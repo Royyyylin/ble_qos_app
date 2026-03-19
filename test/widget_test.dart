@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ble_qos_app/main.dart';
 
 void main() {
-  testWidgets('App root widget renders MaterialApp', (WidgetTester tester) async {
-    // Smoke test: just verify MaterialApp can be created without BLE
-    await tester.pumpWidget(
-      const MaterialApp(
-        title: 'BLE QoS Monitor',
-        home: Scaffold(body: Center(child: Text('BLE QoS Monitor'))),
-      ),
-    );
-    expect(find.text('BLE QoS Monitor'), findsOneWidget);
+  testWidgets('BleQosApp renders with dark theme and GoRouter', (WidgetTester tester) async {
+    await tester.pumpWidget(const ProviderScope(child: BleQosApp()));
+    await tester.pumpAndSettle();
+
+    // Verify the app renders with the Fleet Overview (scanner) screen
+    expect(find.text('Fleet Overview'), findsOneWidget);
+  });
+
+  testWidgets('BleQosApp uses dark theme', (WidgetTester tester) async {
+    await tester.pumpWidget(const ProviderScope(child: BleQosApp()));
+    await tester.pumpAndSettle();
+
+    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(materialApp.theme?.brightness, Brightness.dark);
   });
 }

@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import 'features/device_list/device_list_screen.dart';
-import 'features/engineer/engineer_screen.dart';
-import 'features/home/ed_home_screen.dart';
-import 'features/home/gw_home_screen.dart';
-import 'features/installer/installer_screen.dart';
-import 'features/patrol/patrol_screen.dart';
+import 'core/theme/app_theme.dart';
+import 'features/scanner/scanner_screen.dart';
+import 'features/device/device_screen.dart';
+import 'features/provisioning/provisioning_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/audit/audit_screen.dart';
+
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(path: '/', builder: (_, _) => const ScannerScreen()),
+    GoRoute(path: '/device/:id', builder: (_, state) =>
+      DeviceScreen(deviceId: state.pathParameters['id']!)),
+    GoRoute(path: '/provisioning/:id', builder: (_, state) =>
+      ProvisioningScreen(deviceId: state.pathParameters['id']!)),
+    GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+    GoRoute(path: '/audit', builder: (_, _) => const AuditScreen()),
+  ],
+);
 
 void main() {
   runApp(const ProviderScope(child: BleQosApp()));
@@ -18,22 +31,11 @@ class BleQosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'BLE QoS Monitor',
-      theme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
-        useMaterial3: true,
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (_) => const DeviceListScreen(),
-        '/gw-home': (_) => const GwHomeScreen(),
-        '/ed-home': (_) => const EdHomeScreen(),
-        '/patrol': (_) => const PatrolScreen(),
-        '/installer': (_) => const InstallerScreen(),
-        '/engineer': (_) => const EngineerScreen(),
-        '/settings': (_) => const SettingsScreen(),
-      },
+      theme: AppTheme.dark,
+      routerConfig: _router,
+      debugShowCheckedModeBanner: false,
     );
   }
 }
