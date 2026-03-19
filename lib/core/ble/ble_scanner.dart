@@ -56,6 +56,11 @@ class BleScanner {
     final now = DateTime.now();
     for (final r in results) {
       final id = r.device.remoteId.str;
+
+      // Device name: prefer advName, fallback to platformName
+      final advName = r.advertisementData.advName;
+      final platformName = r.device.platformName;
+      final name = advName.isNotEmpty ? advName : platformName;
       final existing = _devices[id];
 
       // Parse manufacturer data
@@ -71,9 +76,13 @@ class BleScanner {
       // EMA smoothing
       final smoothed = emaRssi(r.rssi, existing?.smoothedRssi, alpha: emaAlpha);
 
+      // Filter: only connectable devices.
+      // TODO: add Nordic CID (0x0059) filter once firmware adds manufacturer data to adv
+      if (!r.advertisementData.connectable) continue;
+
       _devices[id] = ScannedDevice(
         id: id,
-        name: r.advertisementData.advName,
+        name: name,
         rssi: r.rssi,
         smoothedRssi: smoothed,
         status: DeviceStatus.online,
@@ -106,7 +115,7 @@ class BleScanner {
     // No UUID filter — firmware may not advertise service UUID in adv data.
     // Devices identified by name prefix or manufacturer data instead.
     FlutterBluePlus.startScan(
-      androidUsesFineLocation: false,
+      androidUsesFineLocation: true,
     );
   }
 
@@ -118,7 +127,7 @@ class BleScanner {
 
   void _dutyCycleTick() {
     FlutterBluePlus.startScan(
-      androidUsesFineLocation: false,
+      androidUsesFineLocation: true,
       timeout: scanWindow,
     );
     _dutyCycleTimer = Timer(scanWindow + pauseWindow, () {

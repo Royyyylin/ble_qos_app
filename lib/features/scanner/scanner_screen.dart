@@ -40,6 +40,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         final statuses = await [
           Permission.bluetoothScan,
           Permission.bluetoothConnect,
+          Permission.location,
         ].request();
         if (statuses[Permission.bluetoothScan] != PermissionStatus.granted) {
           if (mounted) {
