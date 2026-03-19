@@ -1,74 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_session.dart';
 import '../../core/ble/ble_connector.dart';
-import '../../core/domain/role_policy.dart';
-import '../../core/domain/unlock_session.dart';
 import '../../core/providers/device_provider.dart';
-import '../../core/providers/role_provider.dart';
 
-/// Settings screen — app role switch, session info, disconnect.
+/// Riverpod provider for auth session — replaces legacy role_provider + unlock_session.
+final authSessionProvider = Provider<AuthSession>((ref) => AuthSession());
+
+/// Settings screen — auth role switch, session info, disconnect.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appRole = ref.watch(appRoleProvider);
-    final session = ref.watch(unlockSessionProvider);
+    final session = ref.watch(authSessionProvider);
     final device = ref.watch(connectedDeviceProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
-          // App role
+          // Current role
           ListTile(
             leading: const Icon(Icons.person),
-            title: const Text('App Role'),
-            subtitle: Text(_roleName(appRole)),
+            title: const Text('Auth Role'),
+            subtitle: Text(_roleName(session.currentRole)),
           ),
           const Divider(),
 
-          // Role switch
+          // Role elevation
           ListTile(
             leading: const Icon(Icons.swap_horiz),
-            title: const Text('Switch to Patrol'),
-            enabled: appRole != AppRole.patrol,
-            onTap: () {
-              session.lock();
-              ref.read(appRoleProvider.notifier).state = AppRole.patrol;
-            },
+            title: const Text('Normal Mode'),
+            enabled: session.isElevated,
+            onTap: () => session.demote(),
           ),
           ListTile(
             leading: const Icon(Icons.build),
-            title: const Text('Switch to Installer'),
-            subtitle: const Text('Requires deployment password'),
-            enabled: appRole != AppRole.installer,
-            onTap: () {
-              ref.read(appRoleProvider.notifier).state = AppRole.installer;
-            },
+            title: const Text('Elevate to Maintenance'),
+            subtitle: const Text('Requires 6-digit PIN'),
+            enabled: session.currentRole != AuthRole.maintenance,
+            onTap: () => session.elevate(AuthRole.maintenance),
           ),
           ListTile(
             leading: const Icon(Icons.engineering),
-            title: const Text('Switch to Engineer'),
+            title: const Text('Elevate to Engineer'),
             subtitle: const Text('Requires ENG_UNLOCK PIN'),
-            enabled: appRole != AppRole.engineer,
-            onTap: () {
-              // Navigate to engineer screen for unlock
-              Navigator.of(context).pushNamed('/engineer');
-            },
+            enabled: session.currentRole != AuthRole.engineer,
+            onTap: () => session.elevate(AuthRole.engineer),
           ),
           const Divider(),
 
           // Session info
-          if (session.isUnlocked)
+          if (session.isElevated)
             ListTile(
               leading: const Icon(Icons.timer, color: Colors.green),
-              title: const Text('Engineer session active'),
-              subtitle: Text('Remaining: ${session.remaining.inSeconds}s'),
-              trailing: TextButton(
-                onPressed: () => session.refresh(),
-                child: const Text('Refresh'),
+              title: Text('${_roleName(session.currentRole)} session active'),
+              subtitle: Text(
+                'Idle timeout: ${session.currentRole.idleTimeout.inMinutes}min',
               ),
             ),
 
@@ -86,8 +77,8 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () {
                 ref.read(bleConnectorProvider).disconnect();
                 ref.read(connectedDeviceProvider.notifier).disconnect();
-                session.lock();
-                Navigator.of(context).pushReplacementNamed('/');
+                session.demote();
+                context.go('/');
               },
             ),
           ],
@@ -96,9 +87,9 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  String _roleName(AppRole r) => switch (r) {
-        AppRole.patrol => 'Patrol (read-only)',
-        AppRole.installer => 'Installer',
-        AppRole.engineer => 'Engineer',
+  String _roleName(AuthRole r) => switch (r) {
+        AuthRole.normal => 'Normal (read-only)',
+        AuthRole.maintenance => 'Maintenance',
+        AuthRole.engineer => 'Engineer',
       };
 }
