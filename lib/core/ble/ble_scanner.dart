@@ -103,8 +103,9 @@ class BleScanner {
 
   void _startContinuousScan() {
     _scanning = true;
+    // No UUID filter — firmware may not advertise service UUID in adv data.
+    // Devices identified by name prefix or manufacturer data instead.
     FlutterBluePlus.startScan(
-      withServices: [Guid(GattUuids.serviceQos)],
       androidUsesFineLocation: false,
     );
   }
@@ -117,7 +118,6 @@ class BleScanner {
 
   void _dutyCycleTick() {
     FlutterBluePlus.startScan(
-      withServices: [Guid(GattUuids.serviceQos)],
       androidUsesFineLocation: false,
       timeout: scanWindow,
     );
