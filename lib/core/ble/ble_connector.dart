@@ -1,26 +1,25 @@
 import 'dart:async';
 
-import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
-import '../providers/ble_provider.dart';
 import 'ble_models.dart';
 
 /// BLE connector — handles connect + PEER_ROLE handshake.
 class BleConnector {
-  BleConnector(this._ble);
-
-  final FlutterReactiveBle _ble;
-  StreamSubscription<ConnectionStateUpdate>? _connSub;
-  String? _connectedDeviceId;
+  StreamSubscription<BluetoothConnectionState>? _connSub;
+  BluetoothDevice? _device;
+  List<BluetoothService>? _services;
   BleConnectionState _state = BleConnectionState.disconnected;
   final _stateController = StreamController<BleConnectionState>.broadcast();
 
   Stream<BleConnectionState> get stateStream => _stateController.stream;
   BleConnectionState get state => _state;
-  String? get connectedDeviceId => _connectedDeviceId;
+  String? get connectedDeviceId => _device?.remoteId.str;
+  BluetoothDevice? get device => _device;
+  List<BluetoothService>? get services => _services;
 
   void _setState(BleConnectionState s) {
     _state = s;
@@ -30,44 +29,40 @@ class BleConnector {
   /// Connect to device and perform PEER_ROLE handshake.
   Future<void> connect(String deviceId) async {
     _setState(BleConnectionState.connecting);
-    _connectedDeviceId = deviceId;
+    _device = BluetoothDevice.fromId(deviceId);
 
     _connSub?.cancel();
-    _connSub = _ble
-        .connectToDevice(
-          id: deviceId,
-          connectionTimeout: const Duration(seconds: 10),
-        )
-        .listen(
-      (update) async {
-        if (update.connectionState == DeviceConnectionState.connected) {
-          await _performHandshake(deviceId);
-        } else if (update.connectionState ==
-            DeviceConnectionState.disconnected) {
+    _connSub = _device!.connectionState.listen(
+      (connState) async {
+        if (connState == BluetoothConnectionState.connected) {
+          _services = await _device!.discoverServices();
+          await _performHandshake();
+        } else if (connState == BluetoothConnectionState.disconnected) {
+          _services = null;
           _setState(BleConnectionState.disconnected);
-          _connectedDeviceId = null;
         }
       },
       onError: (_) {
+        _services = null;
         _setState(BleConnectionState.disconnected);
-        _connectedDeviceId = null;
       },
     );
+
+    try {
+      await _device!.connect(timeout: const Duration(seconds: 10));
+    } catch (_) {
+      _setState(BleConnectionState.disconnected);
+    }
   }
 
   /// Write PEER_ROLE = 0x02 (Phone) after connection established.
-  Future<void> _performHandshake(String deviceId) async {
+  Future<void> _performHandshake() async {
     _setState(BleConnectionState.handshaking);
     try {
-      final characteristic = QualifiedCharacteristic(
-        serviceId: Uuid.parse(GattUuids.serviceQos),
-        characteristicId: Uuid.parse(GattUuids.peerRole),
-        deviceId: deviceId,
-      );
-      await _ble.writeCharacteristicWithResponse(
-        characteristic,
-        value: [PeerRole.phone],
-      );
+      final char = _findCharacteristic(GattUuids.peerRole);
+      if (char != null) {
+        await char.write([PeerRole.phone]);
+      }
       _setState(BleConnectionState.connected);
     } catch (_) {
       // Handshake failed — stay connected but peer is UNKNOWN (permissive)
@@ -75,10 +70,26 @@ class BleConnector {
     }
   }
 
-  void disconnect() {
+  /// Find a characteristic by UUID string in discovered services.
+  BluetoothCharacteristic? _findCharacteristic(String charUuid) {
+    if (_services == null) return null;
+    final targetGuid = Guid(charUuid);
+    for (final svc in _services!) {
+      for (final c in svc.characteristics) {
+        if (c.uuid == targetGuid) return c;
+      }
+    }
+    return null;
+  }
+
+  Future<void> disconnect() async {
     _connSub?.cancel();
     _connSub = null;
-    _connectedDeviceId = null;
+    try {
+      await _device?.disconnect();
+    } catch (_) {}
+    _device = null;
+    _services = null;
     _setState(BleConnectionState.disconnected);
   }
 
@@ -90,8 +101,7 @@ class BleConnector {
 
 /// Riverpod provider for the connector.
 final bleConnectorProvider = Provider<BleConnector>((ref) {
-  final ble = ref.watch(bleInstanceProvider);
-  final connector = BleConnector(ble);
+  final connector = BleConnector();
   ref.onDispose(() => connector.dispose());
   return connector;
 });

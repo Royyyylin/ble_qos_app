@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ble/ble_connector.dart';
 import '../../core/ble/ble_gatt.dart';
 import '../../core/domain/unlock_session.dart';
 import '../../core/gatt/gatt_structs.dart';
 import '../../core/gatt/gatt_uuids.dart';
-import '../../core/providers/ble_provider.dart';
 import '../../core/providers/device_provider.dart';
 import '../../core/providers/metrics_provider.dart';
 import '../../core/providers/role_provider.dart';
@@ -29,8 +29,7 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   bool _busy = false;
   QosCtrl? _lastCtrl;
 
-  BleGatt get _gatt => BleGatt(ref.read(bleInstanceProvider));
-  String? get _deviceId => ref.read(connectedDeviceProvider)?.id;
+  BleGatt get _gatt => BleGatt(ref.read(bleConnectorProvider));
 
   @override
   void dispose() {
@@ -295,11 +294,11 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _unlock() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     setState(() => _busy = true);
     try {
       final pin = _pinController.text;
-      await _gatt.write(_deviceId!, GattUuids.engUnlock, utf8.encode(pin));
+      await _gatt.write(GattUuids.engUnlock, utf8.encode(pin));
       ref.read(unlockSessionProvider).unlock(
             onExpired: () {
               ref.read(appRoleProvider.notifier).state = AppRole.patrol;
@@ -316,9 +315,9 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _readCtrl() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     try {
-      final data = await _gatt.read(_deviceId!, GattUuids.ctrl);
+      final data = await _gatt.read(GattUuids.ctrl);
       if (data.length == QosCtrl.size) {
         setState(() => _lastCtrl = QosCtrl.fromBytes(data));
       }
@@ -328,9 +327,9 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _readGwCfg() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     try {
-      final data = await _gatt.read(_deviceId!, GattUuids.gwCfg);
+      final data = await _gatt.read(GattUuids.gwCfg);
       if (data.length == QosGwCfgV2.size) {
         final cfg = QosGwCfgV2.fromBytes(data);
         setState(() =>
@@ -343,14 +342,14 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _writeDefaultGwCfg() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     setState(() => _busy = true);
     try {
       final cfg = QosGwCfgV2(
         ver: 2, tpMode: 0, log: 1, flags: 0,
         creditAlarm: 5, creditCtrl: 3, creditRs485: 5, reserved: 0,
       );
-      await _gatt.write(_deviceId!, GattUuids.gwCfg, cfg.toBytes().toList());
+      await _gatt.write(GattUuids.gwCfg, cfg.toBytes().toList());
       setState(() => _statusMessage = 'GW_CFG default written');
     } catch (e) {
       setState(() => _statusMessage = 'Error: $e');
@@ -360,10 +359,10 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _cmdReboot() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     setState(() => _busy = true);
     try {
-      await _gatt.write(_deviceId!, GattUuids.cmd, [0x01]);
+      await _gatt.write(GattUuids.cmd, [0x01]);
       setState(() => _statusMessage = 'Reboot command sent. Device will disconnect.');
     } catch (e) {
       setState(() => _statusMessage = 'Error: $e');
@@ -373,7 +372,7 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
   }
 
   Future<void> _setNewPin() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     final newPin = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -398,7 +397,7 @@ class _EngineerScreenState extends ConsumerState<EngineerScreen> {
     if (newPin == null || newPin.length < 4 || newPin.length > 16) return;
     setState(() => _busy = true);
     try {
-      await _gatt.write(_deviceId!, GattUuids.engPinSet, utf8.encode(newPin));
+      await _gatt.write(GattUuids.engPinSet, utf8.encode(newPin));
       setState(() => _statusMessage = 'New PIN set');
     } catch (e) {
       setState(() => _statusMessage = 'Error: $e');

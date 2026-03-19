@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ble/ble_connector.dart';
 import '../../core/ble/ble_gatt.dart';
 import '../../core/domain/role_policy.dart';
 import '../../core/gatt/gatt_uuids.dart';
-import '../../core/providers/ble_provider.dart';
 import '../../core/providers/device_provider.dart';
 import '../../core/providers/role_provider.dart';
 
@@ -22,8 +22,7 @@ class _InstallerScreenState extends ConsumerState<InstallerScreen> {
   String _statusMessage = '';
   bool _busy = false;
 
-  BleGatt get _gatt => BleGatt(ref.read(bleInstanceProvider));
-  String? get _deviceId => ref.read(connectedDeviceProvider)?.id;
+  BleGatt get _gatt => BleGatt(ref.read(bleConnectorProvider));
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +119,10 @@ class _InstallerScreenState extends ConsumerState<InstallerScreen> {
   }
 
   Future<void> _writeRole() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     setState(() => _busy = true);
     try {
-      await _gatt.write(_deviceId!, GattUuids.role, [_selectedRole]);
+      await _gatt.write(GattUuids.role, [_selectedRole]);
       setState(() => _statusMessage = 'ROLE=$_selectedRole written. Device will reboot.');
     } catch (e) {
       setState(() => _statusMessage = 'Error: $e');
@@ -133,11 +132,11 @@ class _InstallerScreenState extends ConsumerState<InstallerScreen> {
   }
 
   Future<void> _writeMaxEd() async {
-    if (_deviceId == null) return;
+    if (ref.read(connectedDeviceProvider) == null) return;
     setState(() => _busy = true);
     try {
       // CMD 0x02 = SET_MAX_ED, payload = [0x02, maxEd]
-      await _gatt.write(_deviceId!, GattUuids.cmd, [0x02, _maxEd]);
+      await _gatt.write(GattUuids.cmd, [0x02, _maxEd]);
       setState(() => _statusMessage = 'SET_MAX_ED=$_maxEd sent.');
     } catch (e) {
       setState(() => _statusMessage = 'Error: $e');
