@@ -24,4 +24,5 @@ class GattUuids {
   static const engPinSet = '6f8a9c12-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const evt = '6f8a9c13-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const peerRole = '6f8a9c14-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const capability = '6f8a9c19-2c1a-4b6f-8a11-8ddc1f4e7b25';
 }
