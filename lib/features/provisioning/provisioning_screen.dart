@@ -64,7 +64,7 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
 
               // Role selector
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: const InputDecoration(
                   labelText: 'Role',
                   border: OutlineInputBorder(),
@@ -186,7 +186,7 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
         ],
       ),
     ).then((confirmed) {
-      if (confirmed == true) {
+      if (confirmed == true && mounted) {
         // TODO: Write ROLE characteristic via GATT
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ROLE write sent — device will reboot')),

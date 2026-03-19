@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element_parameter
 import 'package:flutter/material.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 

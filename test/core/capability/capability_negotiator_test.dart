@@ -2,7 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
-import 'package:ble_qos_app/core/capability/capability_registry.dart';
+
 
 void main() {
   group('CapabilityNegotiator', () {

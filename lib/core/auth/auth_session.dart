@@ -22,8 +22,6 @@ enum AuthRole {
 /// Auth session state — manages role elevation, idle + absolute timeouts.
 class AuthSession {
   AuthRole _role = AuthRole.normal;
-  DateTime? _elevatedAt;
-  DateTime? _lastActivity;
   Timer? _idleTimer;
   Timer? _absoluteTimer;
   void Function()? _onExpired;
@@ -32,24 +30,18 @@ class AuthSession {
   bool get isElevated => _role != AuthRole.normal;
 
   void elevate(AuthRole role, {void Function()? onExpired}) {
-    final now = DateTime.now();
     _role = role;
-    _elevatedAt = now;
-    _lastActivity = now;
     _onExpired = onExpired;
     _startTimers();
   }
 
   void demote() {
     _role = AuthRole.normal;
-    _elevatedAt = null;
-    _lastActivity = null;
     _cancelTimers();
   }
 
   void touch() {
     if (!isElevated) return;
-    _lastActivity = DateTime.now();
     _restartIdleTimer();
   }
 
