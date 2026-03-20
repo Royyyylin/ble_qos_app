@@ -112,9 +112,9 @@ class BleScanner {
 
   void _startContinuousScan() {
     _scanning = true;
-    // No UUID filter — firmware may not advertise service UUID in adv data.
-    // Devices identified by name prefix or manufacturer data instead.
+    // Filter by QoS Service UUID (0x1820) — only show QoS GW and ED devices.
     FlutterBluePlus.startScan(
+      withServices: [Guid(GattUuids.serviceQos)],
       androidUsesFineLocation: true,
     );
   }
@@ -127,6 +127,7 @@ class BleScanner {
 
   void _dutyCycleTick() {
     FlutterBluePlus.startScan(
+      withServices: [Guid(GattUuids.serviceQos)],
       androidUsesFineLocation: true,
       timeout: scanWindow,
     );
