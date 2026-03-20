@@ -28,6 +28,9 @@ class BleScanner {
   static const Duration staleThreshold = Duration(seconds: 10);
   static const Duration offlineThreshold = Duration(seconds: 30);
 
+  /// QoS service UUID filter for scan — only discover devices advertising 0x1820.
+  static final List<Guid> _qosServiceFilter = [Guid(GattUuids.serviceQos)];
+
   Stream<List<ScannedDevice>> get devices => _controller.stream;
   List<ScannedDevice> get currentDevices => _devices.values.toList();
   bool get isScanning => _scanning;
@@ -112,9 +115,8 @@ class BleScanner {
 
   void _startContinuousScan() {
     _scanning = true;
-    // Filter by QoS Service UUID (0x1820) — only show QoS GW and ED devices.
     FlutterBluePlus.startScan(
-      withServices: [Guid(GattUuids.serviceQos)],
+      withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
     );
   }
@@ -127,7 +129,7 @@ class BleScanner {
 
   void _dutyCycleTick() {
     FlutterBluePlus.startScan(
-      withServices: [Guid(GattUuids.serviceQos)],
+      withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
       timeout: scanWindow,
     );
