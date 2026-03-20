@@ -6,23 +6,23 @@ import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
 void main() {
   group('ManufacturerData', () {
     test('parse valid GW payload', () {
-      // protocol=1, role=2(GW), network_id=0x0001, ed_count=3, ha_role=1(active)
-      final bytes = Uint8List.fromList([1, 2, 1, 0, 3, 1]);
+      // protocol=1, role=0x01(GW per firmware ADV_MFG_ROLE_GW), network_id=0x0001, ed_count=3, ha_role=1(active)
+      final bytes = Uint8List.fromList([1, ManufacturerData.roleGateway, 1, 0, 3, 1]);
       final data = ManufacturerData.parse(bytes);
       expect(data, isNotNull);
       expect(data!.protocolVersion, 1);
-      expect(data.role, 2);
+      expect(data.role, ManufacturerData.roleGateway);
       expect(data.networkId, 1);
       expect(data.edCount, 3);
       expect(data.haRole, 1);
     });
 
     test('parse valid ED payload (shorter)', () {
-      // protocol=1, role=1(ED), network_id=0x0002
-      final bytes = Uint8List.fromList([1, 1, 2, 0]);
+      // protocol=1, role=0x02(ED per firmware ADV_MFG_ROLE_ED), network_id=0x0002
+      final bytes = Uint8List.fromList([1, ManufacturerData.roleEndDevice, 2, 0]);
       final data = ManufacturerData.parse(bytes);
       expect(data, isNotNull);
-      expect(data!.role, 1);
+      expect(data!.role, ManufacturerData.roleEndDevice);
       expect(data.networkId, 2);
       expect(data.edCount, isNull);
     });
@@ -32,11 +32,18 @@ void main() {
       expect(ManufacturerData.parse(bytes), isNull);
     });
 
-    test('isGateway returns true for role 2', () {
-      final bytes = Uint8List.fromList([1, 2, 1, 0, 3, 1]);
+    test('given GW role byte when parsed then isGateway returns true', () {
+      final bytes = Uint8List.fromList([1, ManufacturerData.roleGateway, 1, 0, 3, 1]);
       final data = ManufacturerData.parse(bytes)!;
       expect(data.isGateway, isTrue);
       expect(data.isEndDevice, isFalse);
+    });
+
+    test('given ED role byte when parsed then isEndDevice returns true', () {
+      final bytes = Uint8List.fromList([1, ManufacturerData.roleEndDevice, 2, 0]);
+      final data = ManufacturerData.parse(bytes)!;
+      expect(data.isEndDevice, isTrue);
+      expect(data.isGateway, isFalse);
     });
   });
 }
