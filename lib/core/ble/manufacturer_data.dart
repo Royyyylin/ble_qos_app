@@ -3,10 +3,11 @@ import 'dart:typed_data';
 
 /// Parsed manufacturer specific data from BLE advertising — spec §4.5.
 class ManufacturerData {
-  /// Role constants matching firmware PEER_ROLE definitions.
+  /// Role constants matching firmware adv_mfg.h definitions.
+  /// ADV_MFG_ROLE_GW=0x01, ADV_MFG_ROLE_ED=0x02.
   static const int roleUnprovisioned = 0x00;
-  static const int roleEndDevice = 0x01;
-  static const int roleGateway = 0x02;
+  static const int roleGateway = 0x01;
+  static const int roleEndDevice = 0x02;
   static const int roleCentralController = 0x04;
 
   final int protocolVersion;
