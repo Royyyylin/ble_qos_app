@@ -11,18 +11,25 @@ import 'ble_reconnect.dart';
 import 'ble_service_utils.dart';
 
 /// BLE connector — handles connect + PEER_ROLE handshake.
+/// Detects unexpected disconnection and delegates to [BleReconnect] for
+/// automatic reconnection with exponential backoff.
 class BleConnector {
   StreamSubscription<BluetoothConnectionState>? _connSub;
   BluetoothDevice? _device;
   List<BluetoothService>? _services;
   BleConnectionState _state = BleConnectionState.disconnected;
   final _stateController = StreamController<BleConnectionState>.broadcast();
+  bool _intentionalDisconnect = false;
+  BleReconnect? _reconnect;
 
   Stream<BleConnectionState> get stateStream => _stateController.stream;
   BleConnectionState get state => _state;
   String? get connectedDeviceId => _device?.remoteId.str;
   BluetoothDevice? get device => _device;
   List<BluetoothService>? get services => _services;
+
+  /// Attach a [BleReconnect] instance for auto-reconnect on unexpected disconnect.
+  set reconnect(BleReconnect? r) => _reconnect = r;
 
   void _setState(BleConnectionState s) {
     _state = s;
@@ -35,6 +42,8 @@ class BleConnector {
   /// Completes only after Handshake succeeds or an error occurs.
   /// On failure, transitions to [BleConnectionState.error].
   Future<void> connect(String deviceId) async {
+    _intentionalDisconnect = false;
+    _reconnect?.cancel();
     _setState(BleConnectionState.connecting);
     _device = BluetoothDevice.fromId(deviceId);
 
@@ -56,6 +65,7 @@ class BleConnector {
           }
         } else if (connState == BluetoothConnectionState.disconnected) {
           _services = null;
+          final wasConnected = _state == BleConnectionState.connected;
           if (_state != BleConnectionState.error) {
             _setState(BleConnectionState.disconnected);
           }
@@ -63,6 +73,10 @@ class BleConnector {
             completer.completeError(
               StateError('Device disconnected during connection'),
             );
+          }
+          // Auto-reconnect on unexpected disconnection
+          if (wasConnected && !_intentionalDisconnect && _reconnect != null) {
+            _reconnect!.startReconnect(deviceId);
           }
         }
       },
@@ -105,6 +119,8 @@ class BleConnector {
       findCharacteristicByUuid(_services, charUuid);
 
   Future<void> disconnect() async {
+    _intentionalDisconnect = true;
+    _reconnect?.cancel();
     _connSub?.cancel();
     _connSub = null;
     try {
@@ -135,6 +151,7 @@ final bleConnectionStateProvider = StreamProvider<BleConnectionState>((ref) {
 });
 
 /// Riverpod provider for BleReconnect with Exponential Backoff.
+/// Automatically wired into [BleConnector] for unexpected disconnection detection.
 final bleReconnectProvider = Provider<BleReconnect>((ref) {
   final connector = ref.watch(bleConnectorProvider);
   final reconnect = BleReconnect(
@@ -144,6 +161,11 @@ final bleReconnectProvider = Provider<BleReconnect>((ref) {
         connector.state == BleConnectionState.error,
     config: const BackoffConfig(),
   );
-  ref.onDispose(() => reconnect.dispose());
+  // Wire reconnect into connector for auto-reconnect on unexpected disconnect
+  connector.reconnect = reconnect;
+  ref.onDispose(() {
+    connector.reconnect = null;
+    reconnect.dispose();
+  });
   return reconnect;
 });

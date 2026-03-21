@@ -39,24 +39,28 @@ class BleGatt {
   }
 
   /// Subscribe to notifications/indications.
-  /// Registers cancelWhenDisconnected guard before enabling notifications
-  /// to prevent NotificationLeak on disconnect.
-  // ADAPTED: anchor shifted — flutter_blue_plus 1.36.x has cancelWhenDisconnected
-  // on BluetoothDevice (not BluetoothCharacteristic). We listen then register guard.
+  /// Registers cancelWhenDisconnected guard BEFORE enabling notifications
+  /// to prevent NotificationLeak on disconnect (no race window).
   Future<Stream<Uint8List>> subscribe(String charUuid) async {
     final c = _findChar(charUuid);
     if (c == null) throw StateError('Characteristic $charUuid not found');
-    await c.setNotifyValue(true);
+
+    // 1. Listen to value stream BEFORE enabling notifications
     final stream = c.onValueReceived.map((data) => Uint8List.fromList(data));
-    // Guard: auto-cancel subscription on disconnect (prevents leak)
-    final sub = stream.listen(null);
-    _connector.device?.cancelWhenDisconnected(sub, next: true);
-    // Return a new stream that mirrors the subscription
     final controller = StreamController<Uint8List>();
-    sub.onData((data) => controller.add(data));
-    sub.onError((e) => controller.addError(e));
-    sub.onDone(() => controller.close());
+    final sub = stream.listen(
+      (data) => controller.add(data),
+      onError: (e) => controller.addError(e as Object),
+      onDone: () => controller.close(),
+    );
     controller.onCancel = () => sub.cancel();
+
+    // 2. Register disconnect guard BEFORE setNotifyValue — no leak window
+    _connector.device?.cancelWhenDisconnected(sub, next: true);
+
+    // 3. Now enable notifications (if disconnect races, guard already active)
+    await c.setNotifyValue(true);
+
     return controller.stream;
   }
 }
