@@ -72,6 +72,15 @@ class ControlTab extends ConsumerWidget {
     );
   }
 
+  /// Show a [SnackBar] if the widget is still mounted.
+  void _showSnackBar(BuildContext context, String message) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   /// CTRL write flow: PermissionGuard check → QosCtrl.toBytes() → BleGatt.write()
   Future<void> _writeCtrl(BuildContext context, WidgetRef ref) async {
     final session = ref.read(authSessionProvider);
@@ -79,13 +88,7 @@ class ControlTab extends ConsumerWidget {
 
     // Permission gate: CTRL requires maintenance+ role
     if (!PermissionGuard.canWrite(role, GattAction.ctrl)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permission denied: maintenance role required for CTRL write'),
-          ),
-        );
-      }
+      _showSnackBar(context, 'Permission denied: maintenance role required for CTRL write');
       return;
     }
 
@@ -105,17 +108,9 @@ class ControlTab extends ConsumerWidget {
       final connector = ref.read(bleConnectorProvider);
       final gatt = BleGatt(connector);
       await gatt.write(GattUuids.ctrl, ctrl.toBytes());
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CTRL written successfully')),
-        );
-      }
+      _showSnackBar(context, 'CTRL written successfully');
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CTRL write failed: $e')),
-        );
-      }
+      _showSnackBar(context, 'CTRL write failed: $e');
     }
   }
 }

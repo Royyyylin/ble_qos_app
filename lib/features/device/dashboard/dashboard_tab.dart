@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+
+/// Metric definition: label + unit. Values come from QosStatus at runtime.
+typedef _MetricDef = ({String label, String unit, String Function(QosStatus s) valueOf});
 
 /// Dashboard tab — telemetry metrics display (spec §5, §6).
 /// Subscribes to STATUS notify stream via statusStreamProvider.
@@ -11,6 +15,16 @@ class DashboardTab extends ConsumerWidget {
   final String deviceId;
 
   const DashboardTab({super.key, required this.deviceId});
+
+  /// Single source of truth for which metrics to display and how to read them.
+  static final List<_MetricDef> _metrics = [
+    (label: 'RSSI',     unit: 'dBm', valueOf: (s) => '${s.rssi}'),
+    (label: 'Zone',     unit: '',    valueOf: (s) => '${s.zone}'),
+    (label: 'PHY',      unit: '',    valueOf: (s) => '${s.phy}'),
+    (label: 'TX Power', unit: 'dBm', valueOf: (s) => '${s.txPower}'),
+    (label: 'PDR',      unit: '%',   valueOf: (s) => '${s.pdr}'),
+    (label: 'Interval', unit: 'ms',  valueOf: (s) => '${s.interval}'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,44 +42,36 @@ class DashboardTab extends ConsumerWidget {
           const SizedBox(height: 16),
           Expanded(
             child: statusAsync.when(
-              loading: () => GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.6,
-                children: const [
-                  _MetricCard(label: 'RSSI', value: '--', unit: 'dBm'),
-                  _MetricCard(label: 'Zone', value: '--', unit: ''),
-                  _MetricCard(label: 'PHY', value: '--', unit: ''),
-                  _MetricCard(label: 'TX Power', value: '--', unit: 'dBm'),
-                  _MetricCard(label: 'PDR', value: '--', unit: '%'),
-                  _MetricCard(label: 'Interval', value: '--', unit: 'ms'),
-                ],
-              ),
+              loading: () => _buildGrid(null),
               error: (err, _) => Center(
                 child: Text(
                   'Error: $err',
                   style: const TextStyle(color: AppColors.error),
                 ),
               ),
-              data: (status) => GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.6,
-                children: [
-                  _MetricCard(label: 'RSSI', value: '${status.rssi}', unit: 'dBm'),
-                  _MetricCard(label: 'Zone', value: '${status.zone}', unit: ''),
-                  _MetricCard(label: 'PHY', value: '${status.phy}', unit: ''),
-                  _MetricCard(label: 'TX Power', value: '${status.txPower}', unit: 'dBm'),
-                  _MetricCard(label: 'PDR', value: '${status.pdr}', unit: '%'),
-                  _MetricCard(label: 'Interval', value: '${status.interval}', unit: 'ms'),
-                ],
-              ),
+              data: (status) => _buildGrid(status),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Build metric grid. When [status] is null, shows '--' placeholders.
+  Widget _buildGrid(QosStatus? status) {
+    return GridView.count(
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.6,
+      children: [
+        for (final m in _metrics)
+          _MetricCard(
+            label: m.label,
+            value: status != null ? m.valueOf(status) : '--',
+            unit: m.unit,
+          ),
+      ],
     );
   }
 }
