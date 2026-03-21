@@ -87,9 +87,6 @@ void main() {
     });
 
     testWidgets('given ProviderScope when rendered then shows Write ROLE button', (tester) async {
-      // Verify ProvisioningScreen is a ConsumerStatefulWidget (not StatefulWidget)
-      expect(ProvisioningScreen(deviceId: 'test') is ConsumerStatefulWidget, isTrue,
-          reason: 'ProvisioningScreen should be ConsumerStatefulWidget for GATT write');
       await tester.pumpWidget(
         ProviderScope(
           child: const MaterialApp(

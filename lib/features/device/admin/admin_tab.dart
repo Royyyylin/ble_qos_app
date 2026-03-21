@@ -246,7 +246,7 @@ class AdminTab extends ConsumerWidget {
                 const SizedBox(height: 16),
                 if (selectedType == 'ROLE')
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Role',
                       border: OutlineInputBorder(),
