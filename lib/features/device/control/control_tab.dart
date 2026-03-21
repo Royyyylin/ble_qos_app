@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:ble_qos_app/core/auth/auth_session.dart';
+import 'package:ble_qos_app/core/auth/permission_guard.dart';
+import 'package:ble_qos_app/core/ble/ble_connector.dart';
+import 'package:ble_qos_app/core/ble/ble_gatt.dart';
+import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
+import 'package:ble_qos_app/core/gatt/gatt_uuids.dart';
+import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// Control tab — QoS profile selector and CTRL write buttons (spec §6).
 /// Permission-gated by PermissionGuard.canWrite().
-class ControlTab extends StatelessWidget {
+class ControlTab extends ConsumerWidget {
   final String deviceId;
 
   const ControlTab({super.key, required this.deviceId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -38,9 +47,7 @@ class ControlTab extends StatelessWidget {
               title: const Text('Write CTRL'),
               subtitle: const Text('Send control command'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: CTRL write with permission check
-              },
+              onTap: () => _writeCtrl(context, ref),
             ),
           ),
           const SizedBox(height: 8),
@@ -58,5 +65,52 @@ class ControlTab extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// CTRL write flow: PermissionGuard check → QosCtrl.toBytes() → BleGatt.write()
+  Future<void> _writeCtrl(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(authSessionProvider);
+    final role = session.currentRole;
+
+    // Permission gate: CTRL requires maintenance+ role
+    if (!PermissionGuard.canWrite(role, GattAction.ctrl)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permission denied: maintenance role required for CTRL write'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Build default CTRL payload (profile=FAST, phy=2M, tx=0)
+    final ctrl = QosCtrl(
+      profile: 0,
+      phy: 2,
+      txPower: 0,
+      interval: 80,
+      creditAlarm: 0,
+      creditCtrl: 0,
+      creditRs485: 0,
+      flags: 0,
+    );
+
+    try {
+      final connector = ref.read(bleConnectorProvider);
+      final gatt = BleGatt(connector);
+      await gatt.write(GattUuids.ctrl, ctrl.toBytes());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CTRL written successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CTRL write failed: $e')),
+        );
+      }
+    }
   }
 }
