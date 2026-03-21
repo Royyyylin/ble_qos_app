@@ -82,13 +82,20 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   Future<void> _onDeviceTap(ScannedDevice device) async {
     if (_connecting) return; // prevent double-tap
     setState(() => _connecting = true);
+    _stopScan(updateState: false);
+
+    final connector = ref.read(bleConnectorProvider);
+
+    // Disconnect previous device if any
+    if (connector.connectedDeviceId != null) {
+      await connector.disconnect();
+    }
 
     // Set connected device state so providers can subscribe
     ref.read(connectedDeviceProvider.notifier).connect(device);
 
     try {
       // ConnectionOrchestrator: connect → handshake → navigate
-      final connector = ref.read(bleConnectorProvider);
       await connector.connect(device.id);
       // ConnectionEstablished — navigate to DeviceScreen
       if (mounted) context.go('/device/${device.id}');
@@ -104,6 +111,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
           ),
         );
+        _startScan(); // Resume scanning after failed connection
       }
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -158,8 +166,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           // Fleet summary stat cards
           FleetSummary(devices: _devices),
 
@@ -202,6 +212,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   )
                 : _buildGroupedList(),
           ),
+        ],
+          ),
+          // Connection loading overlay
+          if (_connecting)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Connecting...', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
