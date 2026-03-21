@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,25 +46,38 @@ class BleConnector {
     _intentionalDisconnect = false;
     _reconnect?.cancel();
     _setState(BleConnectionState.connecting);
+    debugPrint('[BLE_CONN] connect($deviceId) started');
     _device = BluetoothDevice.fromId(deviceId);
 
     final completer = Completer<void>();
+    bool hasConnected = false;
 
     _connSub?.cancel();
     _connSub = _device!.connectionState.listen(
       (connState) async {
         if (connState == BluetoothConnectionState.connected) {
+          hasConnected = true;
           try {
+            debugPrint('[BLE_CONN] connected, discovering services...');
             _services = await _device!.discoverServices();
+            debugPrint('[BLE_CONN] discovered ${_services?.length} services, handshaking...');
             await _performHandshake();
+            debugPrint('[BLE_CONN] handshake done, completing');
             if (!completer.isCompleted) completer.complete();
           } catch (e) {
+            debugPrint('[BLE_CONN] error during connect: $e');
             _services = null;
             _setState(BleConnectionState.error);
             await _device?.disconnect();
             if (!completer.isCompleted) completer.completeError(e);
           }
         } else if (connState == BluetoothConnectionState.disconnected) {
+          debugPrint('[BLE_CONN] disconnected event, hasConnected=$hasConnected, state=$_state');
+          // Ignore initial disconnected event emitted before connect() completes
+          if (!hasConnected && !completer.isCompleted) {
+            debugPrint('[BLE_CONN] ignoring initial disconnected event');
+            return;
+          }
           _services = null;
           final wasConnected = _state == BleConnectionState.connected;
           if (_state != BleConnectionState.error) {
@@ -90,7 +104,8 @@ class BleConnector {
     try {
       await _device!.connect(timeout: const Duration(seconds: 10));
       await completer.future;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[BLE_CONN] connect failed: $e');
       if (_state == BleConnectionState.connecting ||
           _state == BleConnectionState.handshaking) {
         _setState(BleConnectionState.error);

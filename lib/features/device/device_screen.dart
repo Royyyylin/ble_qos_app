@@ -5,6 +5,7 @@ import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/widgets/connection_state_indicator.dart';
 import 'package:ble_qos_app/widgets/connection_error_screen.dart';
 import 'dashboard/dashboard_tab.dart';
@@ -41,7 +42,16 @@ class DeviceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(bleConnectionStateProvider);
-    final bleState = connectionState.valueOrNull ?? BleConnectionState.disconnected;
+    // While stream hasn't emitted yet, check connector state directly
+    final bleState = connectionState.valueOrNull ?? ref.read(bleConnectorProvider).state;
+
+    // Show loading while connecting/handshaking
+    if (bleState == BleConnectionState.connecting || bleState == BleConnectionState.handshaking) {
+      return Scaffold(
+        appBar: _buildAppBar(bleState),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     // Show error screen if connection lost or errored
     if (bleState == BleConnectionState.error || bleState == BleConnectionState.disconnected) {
@@ -60,6 +70,9 @@ class DeviceScreen extends ConsumerWidget {
         ),
       );
     }
+
+    // Start PING keep-alive to prevent firmware phone_idle timeout
+    ref.watch(pingKeepAliveProvider);
 
     final result = CapabilityNegotiator.negotiate(capabilities);
     final tabs = <_TabEntry>[];

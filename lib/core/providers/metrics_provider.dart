@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ble/ble_connector.dart';
 import '../ble/ble_gatt.dart';
+import '../ble/ble_models.dart';
 import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
@@ -54,3 +55,27 @@ final metricsStreamProvider = StreamProvider.autoDispose<QosMetricsV2>(
     parser: QosMetricsV2.fromBytes,
   ),
 );
+
+/// PING keep-alive: writes PING characteristic every 20s to reset
+/// firmware phone_idle timer (30s timeout). Auto-disposes when
+/// DeviceScreen is no longer visible.
+final pingKeepAliveProvider = StreamProvider.autoDispose<void>((ref) async* {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return;
+
+  final connector = ref.watch(bleConnectorProvider);
+  if (connector.state != BleConnectionState.connected) return;
+
+  final gatt = BleGatt(connector);
+  final pingData = Uint8List(4); // 4-byte timestamp placeholder
+
+  await for (final _ in Stream.periodic(const Duration(seconds: 20))) {
+    if (connector.state != BleConnectionState.connected) break;
+    try {
+      await gatt.writeNoResponse(GattUuids.ping, pingData);
+    } catch (_) {
+      break;
+    }
+    yield null;
+  }
+});
