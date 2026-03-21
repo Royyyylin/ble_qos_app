@@ -29,9 +29,10 @@ class BleScanner {
   static const Duration offlineThreshold = Duration(seconds: 30);
 
   /// QoS service UUID for Dart-layer filtering.
-  /// Android hardware ScanFilter with withServices is unreliable on Android 16+,
-  /// so we scan all devices and filter in _onScanResults instead.
   static final Guid _qosServiceUuid = Guid(GattUuids.serviceQos);
+
+  /// QoS service UUID filter for scan — only discover devices advertising 0x1820.
+  static final List<Guid> _qosServiceFilter = [Guid(GattUuids.serviceQos)];
 
   Stream<List<ScannedDevice>> get devices => _controller.stream;
   List<ScannedDevice> get currentDevices => _devices.values.toList();
@@ -125,6 +126,7 @@ class BleScanner {
   void _startContinuousScan() {
     _scanning = true;
     FlutterBluePlus.startScan(
+      withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
       continuousUpdates: true,
       removeIfGone: const Duration(seconds: 15),
@@ -139,6 +141,7 @@ class BleScanner {
 
   void _dutyCycleTick() {
     FlutterBluePlus.startScan(
+      withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
       timeout: scanWindow,
     );
