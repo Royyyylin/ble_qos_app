@@ -113,6 +113,7 @@ class _MetricCard extends StatelessWidget {
                     value,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: AppColors.primary,
+                      fontFamily: AppColors.monoFontFamily,
                     ),
                   ),
                   if (unit.isNotEmpty) ...[

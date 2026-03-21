@@ -15,4 +15,9 @@ class AppColors {
   static const stale        = Color(0xFF546E7A); // Muted Grey
   static const textPrimary  = Color(0xFFE0E0E0); // Light Grey
   static const textSecondary = Color(0xFF90A4AE); // Blue Grey
+
+  /// Monospace font for data display (RSSI, metrics, hex).
+  /// Spec §8.2 specifies JetBrains Mono; using platform monospace as fallback
+  /// until .ttf assets are bundled.
+  static const String monoFontFamily = 'monospace';
 }
