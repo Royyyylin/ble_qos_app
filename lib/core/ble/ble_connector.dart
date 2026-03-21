@@ -23,35 +23,62 @@ class BleConnector {
 
   void _setState(BleConnectionState s) {
     _state = s;
-    _stateController.add(s);
+    if (!_stateController.isClosed) {
+      _stateController.add(s);
+    }
   }
 
-  /// Connect to device and perform PEER_ROLE handshake.
+  /// Connect to device, discover services, and perform PEER_ROLE Handshake.
+  /// Completes only after Handshake succeeds or an error occurs.
+  /// On failure, transitions to [BleConnectionState.error].
   Future<void> connect(String deviceId) async {
     _setState(BleConnectionState.connecting);
     _device = BluetoothDevice.fromId(deviceId);
+
+    final completer = Completer<void>();
 
     _connSub?.cancel();
     _connSub = _device!.connectionState.listen(
       (connState) async {
         if (connState == BluetoothConnectionState.connected) {
-          _services = await _device!.discoverServices();
-          await _performHandshake();
+          try {
+            _services = await _device!.discoverServices();
+            await _performHandshake();
+            if (!completer.isCompleted) completer.complete();
+          } catch (e) {
+            _services = null;
+            _setState(BleConnectionState.error);
+            await _device?.disconnect();
+            if (!completer.isCompleted) completer.completeError(e);
+          }
         } else if (connState == BluetoothConnectionState.disconnected) {
           _services = null;
-          _setState(BleConnectionState.disconnected);
+          if (_state != BleConnectionState.error) {
+            _setState(BleConnectionState.disconnected);
+          }
+          if (!completer.isCompleted) {
+            completer.completeError(
+              StateError('Device disconnected during connection'),
+            );
+          }
         }
       },
-      onError: (_) {
+      onError: (e) {
         _services = null;
-        _setState(BleConnectionState.disconnected);
+        _setState(BleConnectionState.error);
+        if (!completer.isCompleted) completer.completeError(e);
       },
     );
 
     try {
       await _device!.connect(timeout: const Duration(seconds: 10));
+      await completer.future;
     } catch (_) {
-      _setState(BleConnectionState.disconnected);
+      if (_state == BleConnectionState.connecting ||
+          _state == BleConnectionState.handshaking) {
+        _setState(BleConnectionState.error);
+      }
+      rethrow;
     }
   }
 
