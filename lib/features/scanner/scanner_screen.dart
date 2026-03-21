@@ -98,7 +98,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       // ConnectionOrchestrator: connect → handshake → navigate
       await connector.connect(device.id);
       // ConnectionEstablished — navigate to DeviceScreen
-      if (mounted) context.go('/device/${device.id}');
+      if (mounted) context.push('/device/${device.id}');
     } catch (_) {
       // ConnectionFailed — show error, do NOT navigate
       if (mounted) {
