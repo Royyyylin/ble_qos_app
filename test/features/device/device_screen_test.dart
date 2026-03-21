@@ -3,29 +3,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
-import 'package:ble_qos_app/core/capability/capability_model.dart';
+import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
+import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/features/device/device_screen.dart';
 
 /// Override bleConnectionStateProvider to return connected state for tests
-final _connectedOverrides = [
-  bleConnectionStateProvider.overrideWith(
-    (ref) => Stream.value(BleConnectionState.connected),
-  ),
-];
+final _connectedOverride = bleConnectionStateProvider.overrideWith(
+  (ref) => Stream.value(BleConnectionState.connected),
+);
+
+/// Create a connectedDeviceProvider override with a specific role.
+Override _deviceOverride(int role) {
+  return connectedDeviceProvider.overrideWith((ref) {
+    final notifier = ConnectedDeviceNotifier();
+    // Simulate setting state directly via connect with a fake ScannedDevice
+    notifier.connect(ScannedDevice(
+      id: 'TEST',
+      name: 'TEST',
+      rssi: -50,
+      smoothedRssi: -50,
+      status: DeviceStatus.online,
+      lastSeen: DateTime.now(),
+      mfgData: ManufacturerData(
+        protocolVersion: 1,
+        role: role,
+        networkId: 0,
+      ),
+    ));
+    return notifier;
+  });
+}
 
 void main() {
   group('DeviceScreen', () {
     testWidgets('renders with deviceId in app bar', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'AA:BB:CC',
-              capabilities: const [
-                Capability(id: 'qos_monitor', version: 1),
-              ],
-            ),
+          overrides: [
+            _connectedOverride,
+            _deviceOverride(ManufacturerData.roleGateway),
+          ],
+          child: const MaterialApp(
+            home: DeviceScreen(deviceId: 'AA:BB:CC'),
           ),
         ),
       );
@@ -34,38 +53,33 @@ void main() {
       expect(find.text('AA:BB:CC'), findsOneWidget);
     });
 
-    testWidgets('shows Dashboard content for qos_monitor capability', (tester) async {
+    testWidgets('shows Dashboard content for ED role (qos_monitor only)', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'TEST-01',
-              capabilities: const [
-                Capability(id: 'qos_monitor', version: 1),
-              ],
-            ),
+          overrides: [
+            _connectedOverride,
+            _deviceOverride(ManufacturerData.roleEndDevice),
+          ],
+          child: const MaterialApp(
+            home: DeviceScreen(deviceId: 'TEST-01'),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Single tab renders DashboardTab directly (no TabBar)
+      // ED has only qos_monitor → single tab → no TabBar, just DashboardTab
       expect(find.text('Telemetry'), findsOneWidget);
     });
 
-    testWidgets('shows HA tab for ha_runtime capability', (tester) async {
+    testWidgets('shows HA tab for GW role (has ha_runtime capability)', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'TEST-02',
-              capabilities: const [
-                Capability(id: 'qos_monitor', version: 1),
-                Capability(id: 'ha_runtime', version: 1),
-              ],
-            ),
+          overrides: [
+            _connectedOverride,
+            _deviceOverride(ManufacturerData.roleGateway),
+          ],
+          child: const MaterialApp(
+            home: DeviceScreen(deviceId: 'TEST-02'),
           ),
         ),
       );
@@ -75,17 +89,16 @@ void main() {
       expect(find.text('HA'), findsOneWidget);
     });
 
-    testWidgets('shows Control and Admin tabs when present', (tester) async {
+    testWidgets('shows Control and Admin tabs when flags set', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
+          overrides: [
+            _connectedOverride,
+            _deviceOverride(ManufacturerData.roleGateway),
+          ],
+          child: const MaterialApp(
             home: DeviceScreen(
               deviceId: 'TEST-03',
-              capabilities: const [
-                Capability(id: 'qos_monitor', version: 1),
-                Capability(id: 'ha_runtime', version: 1),
-              ],
               showControlTab: true,
               showAdminTab: true,
             ),
@@ -100,35 +113,15 @@ void main() {
       expect(find.text('Admin'), findsOneWidget);
     });
 
-    testWidgets('does not show tabs for incompatible capabilities', (tester) async {
+    testWidgets('shows no capabilities message for unprovisioned device', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'TEST-04',
-              capabilities: const [
-                Capability(id: 'qos_monitor', version: 0), // too old
-              ],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Should not show Dashboard for incompatible version
-      expect(find.byType(TabBar), findsNothing);
-    });
-
-    testWidgets('shows no tabs message when no compatible capabilities', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: _connectedOverrides,
-          child: MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'TEST-05',
-              capabilities: const [],
-            ),
+          overrides: [
+            _connectedOverride,
+            _deviceOverride(ManufacturerData.roleUnprovisioned),
+          ],
+          child: const MaterialApp(
+            home: DeviceScreen(deviceId: 'TEST-05'),
           ),
         ),
       );

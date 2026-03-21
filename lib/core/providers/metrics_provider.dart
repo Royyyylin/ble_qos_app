@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ble/ble_connector.dart';
@@ -10,8 +11,16 @@ import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
 
+/// Parse [data] with [parser], accepting data.length >= [expectedSize].
+/// Returns null if data is too short.
+T? _tryParse<T>(Uint8List data, int expectedSize, T Function(Uint8List) parser) {
+  if (data.length < expectedSize) return null;
+  return parser(Uint8List.sublistView(data, 0, expectedSize));
+}
+
 /// Shared GATT subscribe-and-parse logic for notification providers.
-/// Subscribes to [charUuid], filters by [expectedSize], and maps via [parser].
+/// First does a GATT read to get initial value (devices that don't send notify),
+/// then subscribes to notifications for live updates.
 Stream<T> _gattNotifyStream<T>(
   Ref ref, {
   required String charUuid,
@@ -23,20 +32,64 @@ Stream<T> _gattNotifyStream<T>(
 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
-  final stream = await gatt.subscribe(charUuid);
-  yield* stream
-      .where((data) => data.length == expectedSize)
-      .map(parser);
+
+  // 1. Initial read — show data immediately even if device doesn't send notify
+  try {
+    final data = await gatt.read(charUuid);
+    // debugPrint('[METRICS] $charUuid read ${data.length} bytes');
+    final parsed = _tryParse(data, expectedSize, parser);
+    if (parsed != null) yield parsed;
+  } catch (e) {
+    // debugPrint('[METRICS] $charUuid initial read failed: $e');
+  }
+
+  // 2. Subscribe to notifications for live updates
+  try {
+    final stream = await gatt.subscribe(charUuid);
+    yield* stream
+        .map((data) {
+          // debugPrint('[METRICS] $charUuid notify ${data.length} bytes');
+          return data;
+        })
+        .where((data) => data.length >= expectedSize)
+        .map((data) => parser(Uint8List.sublistView(data, 0, expectedSize)));
+  } catch (e) {
+    // debugPrint('[METRICS] $charUuid subscribe failed: $e');
+  }
 }
 
-/// Live STATUS notify stream parsed into QosStatus.
-final statusStreamProvider = StreamProvider.autoDispose<QosStatus>(
-  (ref) => _gattNotifyStream(ref,
-    charUuid: GattUuids.status,
-    expectedSize: QosStatus.size,
-    parser: QosStatus.fromBytes,
-  ),
-);
+/// Live STATUS notify stream — auto-detects 13-byte full or 4-byte indexed format.
+final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return;
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  // Initial read (full 13-byte struct)
+  try {
+    final data = await gatt.read(GattUuids.status);
+    // debugPrint('[METRICS] STATUS read ${data.length} bytes');
+    if (data.length >= QosStatus.indexedSize) {
+      yield QosStatus.parse(data);
+    }
+  } catch (e) {
+    // debugPrint('[METRICS] STATUS initial read failed: $e');
+  }
+
+  // Subscribe to notify (may be 4-byte indexed or 13-byte full)
+  try {
+    final stream = await gatt.subscribe(GattUuids.status);
+    yield* stream
+        .where((data) => data.length >= QosStatus.indexedSize)
+        .map((data) {
+          // debugPrint('[METRICS] STATUS notify ${data.length} bytes');
+          return QosStatus.parse(data);
+        });
+  } catch (e) {
+    // debugPrint('[METRICS] STATUS subscribe failed: $e');
+  }
+});
 
 /// Live EVT notify/indicate stream parsed into QosEvtV1.
 final evtStreamProvider = StreamProvider.autoDispose<QosEvtV1>(

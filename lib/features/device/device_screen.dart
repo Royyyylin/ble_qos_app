@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
-import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
+import 'package:ble_qos_app/core/capability/capability_registry.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/widgets/connection_state_indicator.dart';
 import 'package:ble_qos_app/widgets/connection_error_screen.dart';
@@ -14,18 +15,16 @@ import 'ha/ha_tab.dart';
 import 'admin/admin_tab.dart';
 
 /// Capability-driven device screen with ConnectionStateIndicator — spec §5.
-/// Builds TabBar dynamically from negotiated capabilities.
+/// Builds TabBar dynamically from negotiated capabilities based on device role.
 /// Watches BleConnectionState and shows error screen on disconnection.
 class DeviceScreen extends ConsumerWidget {
   final String deviceId;
-  final List<Capability> capabilities;
   final bool showControlTab;
   final bool showAdminTab;
 
   const DeviceScreen({
     super.key,
     required this.deviceId,
-    this.capabilities = const [],
     this.showControlTab = false,
     this.showAdminTab = false,
   });
@@ -74,6 +73,9 @@ class DeviceScreen extends ConsumerWidget {
     // Start PING keep-alive to prevent firmware phone_idle timeout
     ref.watch(pingKeepAliveProvider);
 
+    // Get capabilities from connected device role (fallback when no Capability Characteristic)
+    final connDevice = ref.watch(connectedDeviceProvider);
+    final capabilities = CapabilityRegistry.fallbackForRole(connDevice?.role ?? 0);
     final result = CapabilityNegotiator.negotiate(capabilities);
     final tabs = <_TabEntry>[];
 

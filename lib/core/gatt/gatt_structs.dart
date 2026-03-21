@@ -4,50 +4,102 @@ import 'dart:typed_data';
 /// Sizes protected by BUILD_ASSERT in firmware — must match exactly.
 /// Source of truth: src/qos_service.h
 
-/// qos_status — 13 bytes, STATUS characteristic (0x2A1D)
+/// qos_status — 13 bytes full / 4 bytes indexed, STATUS characteristic (0x2A1D)
+///
+/// Full format (13 bytes, from GATT read or legacy notify):
+///   rssi(int8), pdr_x100(u16LE), lat_ms(u16LE), jit_ms(u16LE),
+///   profile(u8), phy(u8), tx_power(int8), connected(u8), interval(u16LE)
+///
+/// Indexed format (4 bytes, from GW multi-ED notify):
+///   ed_idx(u8), flags(u8), tx_power(int8), interval_low(u8)
+///   flags: [connected:1][zone:2][profile:2][phy_enc:2][reserved:1]
 class QosStatus {
-  final int zone;       // uint8: NEAR=0, MID=1, FAR=2, EDGE=3
-  final int profile;    // uint8: FAST=0, BALANCED=1, ROBUST=2
-  final int phy;        // uint8: 1M=1, 2M=2, CODED_S8=4, CODED_S2=5
-  final int txPower;    // int8
-  final int rssi;       // int8
-  final int pdr;        // uint8 (0-100%)
-  final int interval;   // uint16 LE (ms * 1.25)
-  final int latency;    // uint16 LE (ms)
-  final int jitter;     // uint16 LE (ms)
-  final int tp;         // uint8 (B/s scaled)
+  final int zone;       // NEAR=0, MID=1, FAR=2, EDGE=3
+  final int profile;    // FAST=0, BALANCED=1, ROBUST=2
+  final int phy;        // 1M=1, 2M=2, CODED_S8=4
+  final int txPower;    // dBm
+  final int rssi;       // dBm
+  final int pdr;        // 0-100 (%)
+  final int interval;   // 1.25ms units
+  final int latency;    // ms
+  final int jitter;     // ms
+  final int tp;         // B/s scaled
+  final int edIndex;    // ED index (from indexed format)
 
   const QosStatus({
-    required this.zone,
-    required this.profile,
-    required this.phy,
-    required this.txPower,
-    required this.rssi,
-    required this.pdr,
-    required this.interval,
-    required this.latency,
-    required this.jitter,
-    required this.tp,
+    this.zone = 0,
+    this.profile = 0,
+    this.phy = 0,
+    this.txPower = 0,
+    this.rssi = 0,
+    this.pdr = 0,
+    this.interval = 0,
+    this.latency = 0,
+    this.jitter = 0,
+    this.tp = 0,
+    this.edIndex = 0,
   });
 
+  /// Full STATUS struct size (GATT read).
   static const int size = 13;
 
+  /// Indexed STATUS size (GW multi-ED notify).
+  static const int indexedSize = 4;
+
+  /// Parse from either 13-byte full or 4-byte indexed format.
+  /// Auto-detects format by data length.
+  static QosStatus parse(Uint8List data) {
+    if (data.length >= size) {
+      return QosStatus.fromBytes(data);
+    } else if (data.length >= indexedSize) {
+      return QosStatus.fromIndexedBytes(data);
+    }
+    throw ArgumentError('QosStatus: expected >= $indexedSize bytes, got ${data.length}');
+  }
+
+  /// Parse full 13-byte STATUS struct (firmware qos_service.h layout).
   factory QosStatus.fromBytes(Uint8List data) {
-    if (data.length != size) {
-      throw ArgumentError('QosStatus: expected $size bytes, got ${data.length}');
+    if (data.length < size) {
+      throw ArgumentError('QosStatus: expected >= $size bytes, got ${data.length}');
     }
     final bd = ByteData.sublistView(data);
     return QosStatus(
-      zone: bd.getUint8(0),
-      profile: bd.getUint8(1),
-      phy: bd.getUint8(2),
-      txPower: bd.getInt8(3),
-      rssi: bd.getInt8(4),
-      pdr: bd.getUint8(5),
-      interval: bd.getUint16(6, Endian.little),
-      latency: bd.getUint16(8, Endian.little),
-      jitter: bd.getUint16(10, Endian.little),
-      tp: bd.getUint8(12),
+      rssi: bd.getInt8(0),
+      pdr: (bd.getUint16(1, Endian.little) / 100).round(), // pdr_x100 → %
+      latency: bd.getUint16(3, Endian.little),
+      jitter: bd.getUint16(5, Endian.little),
+      profile: bd.getUint8(7),
+      phy: bd.getUint8(8),
+      txPower: bd.getInt8(9),
+      // connected at offset 10 — not exposed in UI
+      interval: bd.getUint16(11, Endian.little),
+    );
+  }
+
+  /// Parse 4-byte indexed STATUS (GW multi-ED compact notify).
+  factory QosStatus.fromIndexedBytes(Uint8List data) {
+    if (data.length < indexedSize) {
+      throw ArgumentError('QosStatus indexed: expected >= $indexedSize bytes, got ${data.length}');
+    }
+    final edIdx = data[0];
+    final flags = data[1];
+    final txPower = data[2].toSigned(8); // int8
+    final intervalLow = data[3];
+
+    // Decode flags: [connected:1][zone:2][profile:2][phy_enc:2][reserved:1]
+    final zone = (flags >> 1) & 0x03;
+    final profile = (flags >> 3) & 0x03;
+    final phyEnc = (flags >> 5) & 0x03;
+    // Decode phy: 0=1M, 1=2M, 2=S8
+    final phy = switch (phyEnc) { 1 => 2, 2 => 4, _ => 1 };
+
+    return QosStatus(
+      edIndex: edIdx,
+      zone: zone,
+      profile: profile,
+      phy: phy,
+      txPower: txPower,
+      interval: intervalLow,
     );
   }
 }

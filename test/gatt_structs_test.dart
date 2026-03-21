@@ -6,31 +6,64 @@ import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 
 void main() {
   group('QosStatus', () {
-    test('decodes 13-byte STATUS correctly', () {
-      // zone=1(MID), profile=2(ROBUST), phy=2(2M), tx=-8, rssi=-55,
-      // pdr=95, interval=0x00A0(160), latency=0x0032(50),
-      // jitter=0x0005(5), tp=10
-      final data = Uint8List.fromList([
-        1, 2, 2, 0xF8, 0xC9, // zone, profile, phy, tx(-8), rssi(-55)
-        95, 0xA0, 0x00, 0x32, 0x00, // pdr, interval LE, latency LE
-        0x05, 0x00, 10, // jitter LE, tp
-      ]);
+    test('decodes 13-byte full STATUS matching firmware struct layout', () {
+      // Firmware layout: rssi(int8), pdr_x100(u16LE), lat_ms(u16LE),
+      //   jit_ms(u16LE), profile(u8), phy(u8), tx_power(int8),
+      //   connected(u8), interval(u16LE)
+      final data = Uint8List(13);
+      final bd = ByteData.sublistView(data);
+      bd.setInt8(0, -55);                    // rssi
+      bd.setUint16(1, 9500, Endian.little);  // pdr_x100 = 95.00%
+      bd.setUint16(3, 50, Endian.little);    // lat_ms
+      bd.setUint16(5, 5, Endian.little);     // jit_ms
+      bd.setUint8(7, 2);                     // profile = ROBUST
+      bd.setUint8(8, 2);                     // phy = 2M
+      bd.setInt8(9, -8);                     // tx_power
+      bd.setUint8(10, 1);                    // connected
+      bd.setUint16(11, 160, Endian.little);  // interval
+
       final s = QosStatus.fromBytes(data);
-      expect(s.zone, 1);
+      expect(s.rssi, -55);
+      expect(s.pdr, 95); // 9500/100 rounded
+      expect(s.latency, 50);
+      expect(s.jitter, 5);
       expect(s.profile, 2);
       expect(s.phy, 2);
       expect(s.txPower, -8);
-      expect(s.rssi, -55);
-      expect(s.pdr, 95);
       expect(s.interval, 160);
-      expect(s.latency, 50);
-      expect(s.jitter, 5);
-      expect(s.tp, 10);
     });
 
-    test('rejects wrong length', () {
+    test('decodes 4-byte indexed STATUS from GW notify', () {
+      // Indexed: ed_idx(u8), flags(u8), tx_power(int8), interval_low(u8)
+      // flags: [connected:1][zone:2][profile:2][phy_enc:2][reserved:1]
+      // zone=2(FAR), profile=1(BALANCED), phy_enc=1(2M), connected=1
+      final flags = 1 | (2 << 1) | (1 << 3) | (1 << 5); // 0b_0_01_01_10_1 = 0x2D
+      final data = Uint8List.fromList([3, flags, 0xF8, 80]); // ed=3, tx=-8, interval=80
+      final s = QosStatus.fromIndexedBytes(data);
+      expect(s.edIndex, 3);
+      expect(s.zone, 2);       // FAR
+      expect(s.profile, 1);    // BALANCED
+      expect(s.phy, 2);        // 2M (enc=1 → phy=2)
+      expect(s.txPower, -8);
+      expect(s.interval, 80);
+    });
+
+    test('parse auto-detects 13-byte full format', () {
+      final data = Uint8List(13);
+      data[0] = 0xC9; // rssi = -55
+      final s = QosStatus.parse(data);
+      expect(s.rssi, -55);
+    });
+
+    test('parse auto-detects 4-byte indexed format', () {
+      final data = Uint8List.fromList([0, 0, 0, 0]);
+      final s = QosStatus.parse(data);
+      expect(s.edIndex, 0);
+    });
+
+    test('rejects data shorter than 4 bytes', () {
       expect(
-        () => QosStatus.fromBytes(Uint8List(10)),
+        () => QosStatus.parse(Uint8List(3)),
         throwsArgumentError,
       );
     });
