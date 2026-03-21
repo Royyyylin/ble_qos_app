@@ -13,6 +13,7 @@ import 'dashboard/dashboard_tab.dart';
 import 'control/control_tab.dart';
 import 'ha/ha_tab.dart';
 import 'admin/admin_tab.dart';
+import 'roster/ed_roster_tab.dart';
 
 /// Capability-driven device screen with ConnectionStateIndicator — spec §5.
 /// Builds TabBar dynamically from negotiated capabilities based on device role.
@@ -143,7 +144,7 @@ class DeviceScreen extends ConsumerWidget {
     return switch (tabLabel) {
       'Dashboard' => DashboardTab(deviceId: deviceId),
       'HA' => HaTab(deviceId: deviceId),
-      'Roster' => _PlaceholderTab(label: 'Roster', deviceId: deviceId),
+      'Roster' => EdRosterTab(deviceId: deviceId),
       'Sync' => _PlaceholderTab(label: 'Sync', deviceId: deviceId),
       'Demo' => _PlaceholderTab(label: 'Demo', deviceId: deviceId),
       _ => null,

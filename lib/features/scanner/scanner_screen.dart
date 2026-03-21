@@ -10,6 +10,8 @@ import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
 import '../../core/ble/ble_connector.dart';
 import '../../core/providers/device_provider.dart';
+import '../../core/providers/ed_roster_provider.dart';
+import '../../core/providers/scan_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'fleet_summary.dart';
 import 'scan_device_tile.dart';
@@ -66,7 +68,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       if (mounted) setState(() => _scanning = true);
 
       _scanner!.devices.listen((devices) {
-        if (mounted) setState(() => _devices = devices);
+        if (mounted) {
+          setState(() => _devices = devices);
+          // Sync to global provider so Roster tab can access scan results
+          ref.read(scanResultsProvider.notifier).update(devices);
+        }
       });
     } catch (_) {
       // BLE not available (e.g., in tests or simulator)
@@ -91,7 +97,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       await connector.disconnect();
     }
 
-    // Set connected device state so providers can subscribe
+    // Clear previous ED status and set new connected device
+    ref.read(edStatusMapProvider.notifier).clear();
     ref.read(connectedDeviceProvider.notifier).connect(device);
 
     try {
@@ -260,7 +267,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
             ...devices.map((d) => ScanDeviceTile(
               device: d,
-              onTap: () => _onDeviceTap(d),
+              onConnect: () => _onDeviceTap(d),
             )),
           ],
         );
