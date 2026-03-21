@@ -10,12 +10,14 @@ class ConnectedDevice {
   final String name;
   final ConnectionMode mode;
   final int role; // ManufacturerData role constant
+  final int? networkId;
 
   const ConnectedDevice({
     required this.id,
     required this.name,
     required this.mode,
     required this.role,
+    this.networkId,
   });
 }
 
@@ -33,6 +35,7 @@ class ConnectedDeviceNotifier extends StateNotifier<ConnectedDevice?> {
       name: device.name,
       mode: mode,
       role: role,
+      networkId: device.networkId,
     );
   }
 
