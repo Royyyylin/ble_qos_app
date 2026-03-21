@@ -46,4 +46,28 @@ void main() {
       expect(data.isGateway, isFalse);
     });
   });
+
+  group('DeviceRole mapping', () {
+    test('given Gateway string when roleFromString then returns 0x01', () {
+      expect(ManufacturerData.roleFromString('Gateway'), ManufacturerData.roleGateway);
+    });
+
+    test('given End Device string when roleFromString then returns 0x02', () {
+      expect(ManufacturerData.roleFromString('End Device'), ManufacturerData.roleEndDevice);
+    });
+
+    test('given Central Controller string when roleFromString then returns 0x04', () {
+      expect(ManufacturerData.roleFromString('Central Controller'), ManufacturerData.roleCentralController);
+    });
+
+    test('given unknown string when roleFromString then throws ArgumentError', () {
+      expect(() => ManufacturerData.roleFromString('Unknown'), throwsArgumentError);
+    });
+
+    test('given role uint8 when roleName then returns display string', () {
+      expect(ManufacturerData.roleName(ManufacturerData.roleGateway), 'Gateway');
+      expect(ManufacturerData.roleName(ManufacturerData.roleEndDevice), 'End Device');
+      expect(ManufacturerData.roleName(ManufacturerData.roleCentralController), 'Central Controller');
+    });
+  });
 }
