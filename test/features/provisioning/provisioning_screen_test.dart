@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ble_qos_app/features/provisioning/provisioning_screen.dart';
 
@@ -6,8 +7,10 @@ void main() {
   group('ProvisioningScreen', () {
     testWidgets('renders with device ID in app bar', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'AA:BB:CC:DD'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'AA:BB:CC:DD'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -18,8 +21,10 @@ void main() {
 
     testWidgets('shows role selector with GW/ED/CC options', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'TEST-01'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'TEST-01'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -31,8 +36,10 @@ void main() {
 
     testWidgets('shows network ID input field', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'TEST-02'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'TEST-02'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -42,8 +49,10 @@ void main() {
 
     testWidgets('shows device name input field', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'TEST-03'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'TEST-03'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -53,8 +62,10 @@ void main() {
 
     testWidgets('shows provision button', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'TEST-04'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'TEST-04'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -64,13 +75,30 @@ void main() {
 
     testWidgets('shows reboot warning text', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: ProvisioningScreen(deviceId: 'TEST-05'),
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'TEST-05'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('reboot'), findsOneWidget);
+    });
+
+    testWidgets('given ProviderScope when rendered then shows Write ROLE button', (tester) async {
+      // Verify ProvisioningScreen is a ConsumerStatefulWidget (not StatefulWidget)
+      expect(ProvisioningScreen(deviceId: 'test') is ConsumerStatefulWidget, isTrue,
+          reason: 'ProvisioningScreen should be ConsumerStatefulWidget for GATT write');
+      await tester.pumpWidget(
+        ProviderScope(
+          child: const MaterialApp(
+            home: ProvisioningScreen(deviceId: 'AA:BB:CC:DD'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ElevatedButton, 'Write ROLE'), findsOneWidget);
     });
   });
 }
