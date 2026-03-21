@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ble_qos_app/core/ble/ble_connector.dart';
+import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+import 'package:ble_qos_app/widgets/connection_state_indicator.dart';
+import 'package:ble_qos_app/widgets/connection_error_screen.dart';
 import 'dashboard/dashboard_tab.dart';
 import 'control/control_tab.dart';
 import 'ha/ha_tab.dart';
 import 'admin/admin_tab.dart';
 
-/// Capability-driven device screen — spec §5.
+/// Capability-driven device screen with ConnectionStateIndicator — spec §5.
 /// Builds TabBar dynamically from negotiated capabilities.
-class DeviceScreen extends StatelessWidget {
+/// Watches BleConnectionState and shows error screen on disconnection.
+class DeviceScreen extends ConsumerWidget {
   final String deviceId;
   final List<Capability> capabilities;
   final bool showControlTab;
@@ -24,7 +30,29 @@ class DeviceScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectionState = ref.watch(bleConnectionStateProvider);
+    final bleState = connectionState.valueOrNull ?? BleConnectionState.disconnected;
+
+    // Show error screen if connection lost or errored
+    if (bleState == BleConnectionState.error || bleState == BleConnectionState.disconnected) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(deviceId),
+          actions: [ConnectionStateIndicator(state: bleState)],
+        ),
+        body: ConnectionErrorScreen(
+          message: bleState == BleConnectionState.error
+              ? 'Connection to device failed'
+              : 'Device disconnected',
+          onRetry: () {
+            final connector = ref.read(bleConnectorProvider);
+            connector.connect(deviceId);
+          },
+        ),
+      );
+    }
+
     final result = CapabilityNegotiator.negotiate(capabilities);
     final tabs = <_TabEntry>[];
 
@@ -52,7 +80,10 @@ class DeviceScreen extends StatelessWidget {
 
     if (tabs.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(deviceId)),
+        appBar: AppBar(
+          title: Text(deviceId),
+          actions: [ConnectionStateIndicator(state: bleState)],
+        ),
         body: const Center(
           child: Text(
             'No compatible capabilities',
@@ -64,7 +95,10 @@ class DeviceScreen extends StatelessWidget {
 
     if (tabs.length == 1) {
       return Scaffold(
-        appBar: AppBar(title: Text(deviceId)),
+        appBar: AppBar(
+          title: Text(deviceId),
+          actions: [ConnectionStateIndicator(state: bleState)],
+        ),
         body: tabs.first.widget,
       );
     }
@@ -74,6 +108,7 @@ class DeviceScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(deviceId),
+          actions: [ConnectionStateIndicator(state: bleState)],
           bottom: TabBar(
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
