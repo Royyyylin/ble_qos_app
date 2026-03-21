@@ -16,6 +16,7 @@ class ConnectionBanner extends StatelessWidget {
       BleConnectionState.connecting => (Colors.orange, 'Connecting...'),
       BleConnectionState.handshaking => (Colors.amber, 'Handshaking...'),
       BleConnectionState.connected => (Colors.green, deviceName ?? 'Connected'),
+      BleConnectionState.error => (Colors.red, 'Connection Error'),
     };
     return Container(
       width: double.infinity,

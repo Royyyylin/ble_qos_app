@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:ble_qos_app/core/auth/auth_session.dart';
 import 'package:ble_qos_app/core/auth/permission_guard.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_gatt.dart';
@@ -108,8 +107,10 @@ class ControlTab extends ConsumerWidget {
       final connector = ref.read(bleConnectorProvider);
       final gatt = BleGatt(connector);
       await gatt.write(GattUuids.ctrl, ctrl.toBytes());
+      if (!context.mounted) return;
       _showSnackBar(context, 'CTRL written successfully');
     } catch (e) {
+      if (!context.mounted) return;
       _showSnackBar(context, 'CTRL write failed: $e');
     }
   }

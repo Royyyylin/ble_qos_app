@@ -91,10 +91,11 @@ class ScannedDevice {
   }
 }
 
-/// BLE connection state.
+/// BLE connection state — spec §5.
 enum BleConnectionState {
   disconnected,
   connecting,
   handshaking, // PEER_ROLE write in progress
   connected,
+  error, // connection or handshake failed
 }

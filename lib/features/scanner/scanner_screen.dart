@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
+import '../../core/ble/ble_connector.dart';
 import '../../core/providers/device_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'fleet_summary.dart';
@@ -27,6 +28,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String _searchQuery = '';
   bool _scanning = false;
   BleScanner? _scanner;
+  bool _connecting = false;
 
   @override
   void initState() {
@@ -77,11 +79,35 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     if (updateState && mounted) setState(() => _scanning = false);
   }
 
-  void _onDeviceTap(ScannedDevice device) {
-    // Set connected device state so providers (statusStreamProvider, etc.) can subscribe
+  Future<void> _onDeviceTap(ScannedDevice device) async {
+    if (_connecting) return; // prevent double-tap
+    setState(() => _connecting = true);
+
+    // Set connected device state so providers can subscribe
     ref.read(connectedDeviceProvider.notifier).connect(device);
-    // Navigate to device detail via GoRouter
-    context.go('/device/${device.id}');
+
+    try {
+      // ConnectionOrchestrator: connect → handshake → navigate
+      final connector = ref.read(bleConnectorProvider);
+      await connector.connect(device.id);
+      // ConnectionEstablished — navigate to DeviceScreen
+      if (mounted) context.go('/device/${device.id}');
+    } catch (_) {
+      // ConnectionFailed — show error, do NOT navigate
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect to ${device.displayName}'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _onDeviceTap(device),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
   }
 
   List<ScannedDevice> get _filteredDevices {

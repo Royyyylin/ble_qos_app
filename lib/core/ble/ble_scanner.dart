@@ -82,12 +82,6 @@ class BleScanner {
       // EMA smoothing
       final smoothed = emaRssi(r.rssi, existing?.smoothedRssi, alpha: emaAlpha);
 
-      // DEBUG: log all connectable devices to diagnose ED visibility
-      if (r.advertisementData.connectable) {
-        final uuids = r.advertisementData.serviceUuids.map((u) => u.str).toList();
-        print('[SCAN_DBG] id=$id name="$name" rssi=${r.rssi} uuids=$uuids connectable=true');
-      }
-
       // Software filter: only QoS devices (connectable + advertising UUID 0x1820).
       if (!r.advertisementData.connectable) continue;
       final hasQosUuid = r.advertisementData.serviceUuids.contains(_qosServiceUuid);
