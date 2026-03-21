@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:ble_qos_app/core/auth/permission_guard.dart';
+import 'package:ble_qos_app/core/ble/ble_connector.dart';
+import 'package:ble_qos_app/core/ble/ble_gatt.dart';
+import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
+import 'package:ble_qos_app/core/gatt/gatt_uuids.dart';
+import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// Provisioning flow — spec §9.
 /// Role selector (GW/ED/CC), network_id input, device name,
 /// ROLE write button with reboot warning. Engineer-only.
-class ProvisioningScreen extends StatefulWidget {
+class ProvisioningScreen extends ConsumerStatefulWidget {
   final String deviceId;
 
   const ProvisioningScreen({super.key, required this.deviceId});
 
   @override
-  State<ProvisioningScreen> createState() => _ProvisioningScreenState();
+  ConsumerState<ProvisioningScreen> createState() => _ProvisioningScreenState();
 }
 
-class _ProvisioningScreenState extends State<ProvisioningScreen> {
+class _ProvisioningScreenState extends ConsumerState<ProvisioningScreen> {
   final _formKey = GlobalKey<FormState>();
   String _selectedRole = 'Gateway';
   final _networkIdController = TextEditingController();
@@ -162,8 +170,24 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
     );
   }
 
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   void _onWriteRole() {
     if (!_formKey.currentState!.validate()) return;
+
+    // Permission gate: ROLE requires engineer role (spec §3.2)
+    final session = ref.read(authSessionProvider);
+    final role = session.currentRole;
+    if (!PermissionGuard.canWrite(role, GattAction.role)) {
+      _showSnackBar('Permission denied: engineer role required for ROLE write');
+      return;
+    }
 
     // Show confirmation dialog before writing ROLE
     showDialog<bool>(
@@ -185,12 +209,22 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
           ),
         ],
       ),
-    ).then((confirmed) {
+    ).then((confirmed) async {
       if (confirmed == true && mounted) {
-        // TODO: Write ROLE characteristic via GATT
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ROLE write sent — device will reboot')),
-        );
+        try {
+          final roleValue = ManufacturerData.roleFromString(_selectedRole);
+          final connector = ref.read(bleConnectorProvider);
+          final gatt = BleGatt(connector);
+          await gatt.write(GattUuids.role, [roleValue]);
+          if (!mounted) return;
+          _showSnackBar('ROLE write sent — device will reboot');
+          // Navigate back after short delay for reboot
+          await Future.delayed(const Duration(seconds: 1));
+          if (mounted) Navigator.of(context).pop();
+        } catch (e) {
+          if (!mounted) return;
+          _showSnackBar('ROLE write failed: $e');
+        }
       }
     });
   }

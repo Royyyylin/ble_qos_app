@@ -10,6 +10,34 @@ class ManufacturerData {
   static const int roleEndDevice = 0x02;
   static const int roleCentralController = 0x04;
 
+  /// Display name → uint8 role value mapping. SSOT for provisioning & admin UI.
+  static const Map<String, int> _roleMap = {
+    'Gateway': roleGateway,
+    'End Device': roleEndDevice,
+    'Central Controller': roleCentralController,
+  };
+
+  /// All valid role display names for dropdown selectors.
+  static List<String> get roleNames => _roleMap.keys.toList();
+
+  /// Convert display name to uint8 role value. Throws if unknown.
+  static int roleFromString(String name) {
+    final value = _roleMap[name];
+    if (value == null) {
+      throw ArgumentError('Unknown role name: $name');
+    }
+    return value;
+  }
+
+  /// Convert uint8 role value to display name.
+  static String roleName(int role) => switch (role) {
+    roleGateway => 'Gateway',
+    roleEndDevice => 'End Device',
+    roleCentralController => 'Central Controller',
+    roleUnprovisioned => 'Unprovisioned',
+    _ => 'Unknown (0x${role.toRadixString(16)})',
+  };
+
   final int protocolVersion;
   final int role;
   final int networkId;

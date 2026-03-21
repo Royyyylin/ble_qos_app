@@ -56,6 +56,15 @@ final metricsStreamProvider = StreamProvider.autoDispose<QosMetricsV2>(
   ),
 );
 
+/// Live HA_HB notify stream parsed into HaHeartbeat.
+final haHeartbeatStreamProvider = StreamProvider.autoDispose<HaHeartbeat>(
+  (ref) => _gattNotifyStream(ref,
+    charUuid: GattUuids.haHb,
+    expectedSize: HaHeartbeat.size,
+    parser: HaHeartbeat.fromBytes,
+  ),
+);
+
 /// PING keep-alive: writes PING characteristic every 20s to reset
 /// firmware phone_idle timer (30s timeout). Auto-disposes when
 /// DeviceScreen is no longer visible.

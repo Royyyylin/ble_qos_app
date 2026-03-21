@@ -133,6 +133,54 @@ void main() {
     });
   });
 
+  group('CmdCode', () {
+    test('given reboot constant when accessed then equals 0x01', () {
+      expect(CmdCode.reboot, 0x01);
+    });
+  });
+
+  group('HaHeartbeat', () {
+    test('given 21_byte payload when fromBytes then parses all fields correctly', () {
+      final data = Uint8List(21);
+      final bd = ByteData.sublistView(data);
+      bd.setUint8(0, 0x01);                        // haRole = active
+      bd.setUint32(1, 42, Endian.little);           // epoch
+      bd.setUint32(5, 1000, Endian.little);         // heartbeatCount
+      bd.setUint8(9, 0x02);                         // peerStatus = standby
+      bd.setUint32(10, 1710000000, Endian.little);  // lastFailoverTimestamp
+      bd.setUint8(14, 0x03);                        // lastFailoverReason
+
+      final hb = HaHeartbeat.fromBytes(data);
+      expect(hb.haRole, 0x01);
+      expect(hb.epoch, 42);
+      expect(hb.heartbeatCount, 1000);
+      expect(hb.peerStatus, 0x02);
+      expect(hb.lastFailoverTimestamp, 1710000000);
+      expect(hb.lastFailoverReason, 0x03);
+    });
+
+    test('given wrong length when fromBytes then throws ArgumentError', () {
+      expect(
+        () => HaHeartbeat.fromBytes(Uint8List(10)),
+        throwsArgumentError,
+      );
+    });
+
+    test('given active role when haRoleLabel then returns Active', () {
+      final data = Uint8List(21);
+      data[0] = 0x01;
+      final hb = HaHeartbeat.fromBytes(data);
+      expect(hb.haRoleLabel, 'Active');
+    });
+
+    test('given standby role when haRoleLabel then returns Standby', () {
+      final data = Uint8List(21);
+      data[0] = 0x02;
+      final hb = HaHeartbeat.fromBytes(data);
+      expect(hb.haRoleLabel, 'Standby');
+    });
+  });
+
   group('QosPingRsp', () {
     test('decodes 8-byte ping response', () {
       final data = Uint8List(8);
