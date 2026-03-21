@@ -28,6 +28,9 @@ class BleScanner {
   static const Duration staleThreshold = Duration(seconds: 10);
   static const Duration offlineThreshold = Duration(seconds: 30);
 
+  /// QoS service UUID for Dart-layer filtering.
+  static final Guid _qosServiceUuid = Guid(GattUuids.serviceQos);
+
   /// QoS service UUID filter for scan — only discover devices advertising 0x1820.
   static final List<Guid> _qosServiceFilter = [Guid(GattUuids.serviceQos)];
 
@@ -79,9 +82,16 @@ class BleScanner {
       // EMA smoothing
       final smoothed = emaRssi(r.rssi, existing?.smoothedRssi, alpha: emaAlpha);
 
-      // Filter: only connectable devices.
-      // TODO: add Nordic CID (0x0059) filter once firmware adds manufacturer data to adv
+      // DEBUG: log all connectable devices to diagnose ED visibility
+      if (r.advertisementData.connectable) {
+        final uuids = r.advertisementData.serviceUuids.map((u) => u.str).toList();
+        print('[SCAN_DBG] id=$id name="$name" rssi=${r.rssi} uuids=$uuids connectable=true');
+      }
+
+      // Software filter: only QoS devices (connectable + advertising UUID 0x1820).
       if (!r.advertisementData.connectable) continue;
+      final hasQosUuid = r.advertisementData.serviceUuids.contains(_qosServiceUuid);
+      if (!hasQosUuid) continue;
 
       _devices[id] = ScannedDevice(
         id: id,
@@ -118,6 +128,8 @@ class BleScanner {
     FlutterBluePlus.startScan(
       withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
+      continuousUpdates: true,
+      removeIfGone: const Duration(seconds: 15),
     );
   }
 

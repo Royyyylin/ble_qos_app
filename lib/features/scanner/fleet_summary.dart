@@ -12,20 +12,29 @@ class FleetSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final online = devices.where((d) => d.status == DeviceStatus.online).length;
-    final stale = devices.where((d) => d.status == DeviceStatus.stale).length;
-    final offline = devices.where((d) => d.status == DeviceStatus.offline).length;
+    // Single-pass counting instead of three separate .where() iterations
+    var online = 0, stale = 0, offline = 0;
+    for (final d in devices) {
+      switch (d.status) {
+        case DeviceStatus.online:  online++;
+        case DeviceStatus.stale:   stale++;
+        case DeviceStatus.offline: offline++;
+      }
+    }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(child: _StatCard(label: 'Online', count: online, color: AppColors.success)),
-          const SizedBox(width: 8),
-          Expanded(child: _StatCard(label: 'Stale', count: stale, color: AppColors.warning)),
-          const SizedBox(width: 8),
-          Expanded(child: _StatCard(label: 'Offline', count: offline, color: AppColors.error)),
-        ],
+    return Semantics(
+      label: 'Fleet summary: $online online, $stale stale, $offline offline',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(child: _StatCard(label: 'Online', count: online, color: AppColors.success)),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(label: 'Stale', count: stale, color: AppColors.warning)),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(label: 'Offline', count: offline, color: AppColors.error)),
+          ],
+        ),
       ),
     );
   }

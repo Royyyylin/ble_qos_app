@@ -13,27 +13,32 @@ class ScanDeviceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: _statusIndicator(),
-        title: Text(
-          device.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+    return Semantics(
+      label: '${device.displayName}, ${device.roleLabel}, ${device.smoothedRssi.round()} dBm, ${device.status.name}',
+      hint: 'Double tap to connect',
+      button: true,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: ListTile(
+          leading: _statusIndicator(),
+          title: Text(
+            device.displayName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            '${device.roleLabel} ${device.networkId != null ? "| Net ${device.networkId}" : ""}',
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _rssiWidget(),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+          onTap: onTap,
         ),
-        subtitle: Text(
-          '${device.roleLabel} ${device.networkId != null ? "| Net ${device.networkId}" : ""}',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _rssiWidget(),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-          ],
-        ),
-        onTap: onTap,
       ),
     );
   }
