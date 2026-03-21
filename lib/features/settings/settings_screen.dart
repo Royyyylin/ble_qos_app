@@ -4,10 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_session.dart';
 import '../../core/ble/ble_connector.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/device_provider.dart';
-
-/// Riverpod provider for auth session — replaces legacy role_provider + unlock_session.
-final authSessionProvider = Provider<AuthSession>((ref) => AuthSession());
 
 /// Settings screen — auth role switch, session info, disconnect.
 class SettingsScreen extends ConsumerWidget {
