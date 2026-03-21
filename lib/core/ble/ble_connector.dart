@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
+import 'backoff_config.dart';
 import 'ble_models.dart';
+import 'ble_reconnect.dart';
 
 /// BLE connector — handles connect + PEER_ROLE handshake.
 class BleConnector {
@@ -131,4 +133,24 @@ final bleConnectorProvider = Provider<BleConnector>((ref) {
   final connector = BleConnector();
   ref.onDispose(() => connector.dispose());
   return connector;
+});
+
+/// StreamProvider for BleConnectionState — used by ConnectionStateIndicator.
+final bleConnectionStateProvider = StreamProvider<BleConnectionState>((ref) {
+  final connector = ref.watch(bleConnectorProvider);
+  return connector.stateStream;
+});
+
+/// Riverpod provider for BleReconnect with Exponential Backoff.
+final bleReconnectProvider = Provider<BleReconnect>((ref) {
+  final connector = ref.watch(bleConnectorProvider);
+  final reconnect = BleReconnect(
+    connect: (deviceId) => connector.connect(deviceId),
+    isDisconnected: () =>
+        connector.state == BleConnectionState.disconnected ||
+        connector.state == BleConnectionState.error,
+    config: const BackoffConfig(),
+  );
+  ref.onDispose(() => reconnect.dispose());
+  return reconnect;
 });
