@@ -103,6 +103,9 @@ class AdminTab extends ConsumerWidget {
     );
   }
 
+  /// Create a [BleGatt] instance from the current [BleConnector].
+  BleGatt _gatt(WidgetRef ref) => BleGatt(ref.read(bleConnectorProvider));
+
   void _showSnackBar(BuildContext context, String message) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,10 +153,8 @@ class AdminTab extends ConsumerWidget {
     }
 
     try {
-      final connector = ref.read(bleConnectorProvider);
-      final gatt = BleGatt(connector);
       // Write ASCII PIN bytes to ENG_UNLOCK characteristic
-      await gatt.write(GattUuids.engUnlock, pin.codeUnits);
+      await _gatt(ref).write(GattUuids.engUnlock, pin.codeUnits);
       // Success — elevate AuthSession to engineer
       final session = ref.read(authSessionProvider);
       session.elevate(AuthRole.engineer, onExpired: () {
@@ -201,9 +202,7 @@ class AdminTab extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      final connector = ref.read(bleConnectorProvider);
-      final gatt = BleGatt(connector);
-      await gatt.write(GattUuids.cmd, [CmdCode.reboot]);
+      await _gatt(ref).write(GattUuids.cmd, [CmdCode.reboot]);
       if (!context.mounted) return;
       _showSnackBar(context, 'Reboot command sent — device will disconnect');
     } catch (e) {
@@ -327,10 +326,8 @@ class AdminTab extends ConsumerWidget {
     }
 
     try {
-      final connector = ref.read(bleConnectorProvider);
-      final gatt = BleGatt(connector);
       final uuid = writeType == 'ROLE' ? GattUuids.role : GattUuids.mode;
-      await gatt.write(uuid, [writeValue!]);
+      await _gatt(ref).write(uuid, [writeValue!]);
       if (!context.mounted) return;
       _showSnackBar(context, '$writeType written successfully');
     } catch (e) {

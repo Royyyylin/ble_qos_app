@@ -170,6 +170,14 @@ class _ProvisioningScreenState extends ConsumerState<ProvisioningScreen> {
     );
   }
 
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   void _onWriteRole() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -177,9 +185,7 @@ class _ProvisioningScreenState extends ConsumerState<ProvisioningScreen> {
     final session = ref.read(authSessionProvider);
     final role = session.currentRole;
     if (!PermissionGuard.canWrite(role, GattAction.role)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission denied: engineer role required for ROLE write')),
-      );
+      _showSnackBar('Permission denied: engineer role required for ROLE write');
       return;
     }
 
@@ -211,17 +217,13 @@ class _ProvisioningScreenState extends ConsumerState<ProvisioningScreen> {
           final gatt = BleGatt(connector);
           await gatt.write(GattUuids.role, [roleValue]);
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ROLE write sent — device will reboot')),
-          );
+          _showSnackBar('ROLE write sent — device will reboot');
           // Navigate back after short delay for reboot
           await Future.delayed(const Duration(seconds: 1));
           if (mounted) Navigator.of(context).pop();
         } catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('ROLE write failed: $e')),
-          );
+          _showSnackBar('ROLE write failed: $e');
         }
       }
     });
