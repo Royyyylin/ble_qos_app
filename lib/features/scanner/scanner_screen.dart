@@ -3,10 +3,12 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
+import '../../core/providers/device_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'fleet_summary.dart';
 import 'scan_device_tile.dart';
@@ -76,8 +78,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   void _onDeviceTap(ScannedDevice device) {
+    // Set connected device state so providers (statusStreamProvider, etc.) can subscribe
+    ref.read(connectedDeviceProvider.notifier).connect(device);
     // Navigate to device detail via GoRouter
-    // context.go('/device/${device.id}');
+    context.go('/device/${device.id}');
   }
 
   List<ScannedDevice> get _filteredDevices {
