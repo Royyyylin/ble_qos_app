@@ -231,3 +231,55 @@ class QosPingRsp {
     );
   }
 }
+
+/// ha_heartbeat — 21 bytes, HA_HB characteristic (vendor 6f8a9c15)
+/// Layout: haRole(1) + epoch(4LE) + heartbeatCount(4LE) + peerStatus(1)
+///       + lastFailoverTimestamp(4LE) + lastFailoverReason(1) + reserved(6)
+class HaHeartbeat {
+  final int haRole;                 // uint8: 0x01=active, 0x02=standby
+  final int epoch;                  // uint32 LE — HA cluster generation
+  final int heartbeatCount;         // uint32 LE
+  final int peerStatus;             // uint8: peer's role
+  final int lastFailoverTimestamp;  // uint32 LE — unix epoch
+  final int lastFailoverReason;     // uint8
+
+  const HaHeartbeat({
+    required this.haRole,
+    required this.epoch,
+    required this.heartbeatCount,
+    required this.peerStatus,
+    required this.lastFailoverTimestamp,
+    required this.lastFailoverReason,
+  });
+
+  static const int size = 21;
+  static const int roleActive = 0x01;
+  static const int roleStandby = 0x02;
+
+  String get haRoleLabel => switch (haRole) {
+    roleActive => 'Active',
+    roleStandby => 'Standby',
+    _ => 'Unknown (0x${haRole.toRadixString(16)})',
+  };
+
+  String get peerStatusLabel => switch (peerStatus) {
+    roleActive => 'Active',
+    roleStandby => 'Standby',
+    _ => 'Unknown (0x${peerStatus.toRadixString(16)})',
+  };
+
+  factory HaHeartbeat.fromBytes(Uint8List data) {
+    if (data.length != size) {
+      throw ArgumentError('HaHeartbeat: expected $size bytes, got ${data.length}');
+    }
+    final bd = ByteData.sublistView(data);
+    return HaHeartbeat(
+      haRole: bd.getUint8(0),
+      epoch: bd.getUint32(1, Endian.little),
+      heartbeatCount: bd.getUint32(5, Endian.little),
+      peerStatus: bd.getUint8(9),
+      lastFailoverTimestamp: bd.getUint32(10, Endian.little),
+      lastFailoverReason: bd.getUint8(14),
+    );
+  }
+}
