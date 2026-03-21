@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// Dashboard tab — telemetry metrics display (spec §5, §6).
-/// Shows RSSI, Zone, PHY, TX, PDR, Interval, Latency via MetricCard widgets.
-/// Subscribes to STATUS + METRICS notify streams.
-class DashboardTab extends StatelessWidget {
+/// Subscribes to STATUS notify stream via statusStreamProvider.
+/// Shows RSSI, Zone, PHY, TX Power, PDR, Interval as live MetricCards.
+class DashboardTab extends ConsumerWidget {
   final String deviceId;
 
   const DashboardTab({super.key, required this.deviceId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statusAsync = ref.watch(statusStreamProvider);
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -22,19 +27,41 @@ class DashboardTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.6,
-              children: const [
-                _MetricCard(label: 'RSSI', value: '--', unit: 'dBm'),
-                _MetricCard(label: 'Zone', value: '--', unit: ''),
-                _MetricCard(label: 'PHY', value: '--', unit: ''),
-                _MetricCard(label: 'TX Power', value: '--', unit: 'dBm'),
-                _MetricCard(label: 'PDR', value: '--', unit: '%'),
-                _MetricCard(label: 'Interval', value: '--', unit: 'ms'),
-              ],
+            child: statusAsync.when(
+              loading: () => GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.6,
+                children: const [
+                  _MetricCard(label: 'RSSI', value: '--', unit: 'dBm'),
+                  _MetricCard(label: 'Zone', value: '--', unit: ''),
+                  _MetricCard(label: 'PHY', value: '--', unit: ''),
+                  _MetricCard(label: 'TX Power', value: '--', unit: 'dBm'),
+                  _MetricCard(label: 'PDR', value: '--', unit: '%'),
+                  _MetricCard(label: 'Interval', value: '--', unit: 'ms'),
+                ],
+              ),
+              error: (err, _) => Center(
+                child: Text(
+                  'Error: $err',
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ),
+              data: (status) => GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.6,
+                children: [
+                  _MetricCard(label: 'RSSI', value: '${status.rssi}', unit: 'dBm'),
+                  _MetricCard(label: 'Zone', value: '${status.zone}', unit: ''),
+                  _MetricCard(label: 'PHY', value: '${status.phy}', unit: ''),
+                  _MetricCard(label: 'TX Power', value: '${status.txPower}', unit: 'dBm'),
+                  _MetricCard(label: 'PDR', value: '${status.pdr}', unit: '%'),
+                  _MetricCard(label: 'Interval', value: '${status.interval}', unit: 'ms'),
+                ],
+              ),
             ),
           ),
         ],
