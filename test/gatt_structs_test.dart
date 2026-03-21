@@ -133,6 +133,12 @@ void main() {
     });
   });
 
+  group('CmdCode', () {
+    test('given reboot constant when accessed then equals 0x01', () {
+      expect(CmdCode.reboot, 0x01);
+    });
+  });
+
   group('HaHeartbeat', () {
     test('given 21_byte payload when fromBytes then parses all fields correctly', () {
       final data = Uint8List(21);

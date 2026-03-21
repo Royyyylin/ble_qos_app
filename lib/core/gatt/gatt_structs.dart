@@ -232,6 +232,12 @@ class QosPingRsp {
   }
 }
 
+/// CMD opcodes for the CMD characteristic (0x2A20).
+class CmdCode {
+  CmdCode._();
+  static const int reboot = 0x01;
+}
+
 /// ha_heartbeat — 21 bytes, HA_HB characteristic (vendor 6f8a9c15)
 /// Layout: haRole(1) + epoch(4LE) + heartbeatCount(4LE) + peerStatus(1)
 ///       + lastFailoverTimestamp(4LE) + lastFailoverReason(1) + reserved(6)
