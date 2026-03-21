@@ -108,6 +108,22 @@ class QosCtrl {
       flags: bd.getUint8(8),
     );
   }
+
+  /// Serialize to 9-byte payload for CTRL characteristic write.
+  /// Byte layout mirrors fromBytes() field order exactly.
+  Uint8List toBytes() {
+    final data = Uint8List(size);
+    final bd = ByteData.sublistView(data);
+    bd.setUint8(0, profile);
+    bd.setUint8(1, phy);
+    bd.setInt8(2, txPower);
+    bd.setUint16(3, interval, Endian.little);
+    bd.setUint8(5, creditAlarm);
+    bd.setUint8(6, creditCtrl);
+    bd.setUint8(7, creditRs485);
+    bd.setUint8(8, flags);
+    return data;
+  }
 }
 
 /// qos_gw_cfg_v2 — 8 bytes, GW_CFG characteristic (0x2A25)

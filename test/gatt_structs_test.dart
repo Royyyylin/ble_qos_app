@@ -54,6 +54,45 @@ void main() {
     });
   });
 
+  group('QosCtrl.toBytes()', () {
+    test('given valid QosCtrl when toBytes then produces 9-byte payload matching fromBytes layout', () {
+      final ctrl = QosCtrl(
+        profile: 1,
+        phy: 2,
+        txPower: -4,
+        interval: 80,
+        creditAlarm: 5,
+        creditCtrl: 3,
+        creditRs485: 2,
+        flags: 0,
+      );
+      final bytes = ctrl.toBytes();
+      expect(bytes.length, QosCtrl.size);
+      final decoded = QosCtrl.fromBytes(bytes);
+      expect(decoded.profile, 1);
+      expect(decoded.phy, 2);
+      expect(decoded.txPower, -4);
+      expect(decoded.interval, 80);
+      expect(decoded.creditAlarm, 5);
+      expect(decoded.creditCtrl, 3);
+      expect(decoded.creditRs485, 2);
+      expect(decoded.flags, 0);
+    });
+
+    test('given QosCtrl with negative txPower when toBytes then encodes int8 correctly', () {
+      final ctrl = QosCtrl(
+        profile: 0, phy: 1, txPower: -20, interval: 160,
+        creditAlarm: 0, creditCtrl: 0, creditRs485: 0, flags: 0xFF,
+      );
+      final bytes = ctrl.toBytes();
+      expect(bytes.length, QosCtrl.size);
+      final decoded = QosCtrl.fromBytes(bytes);
+      expect(decoded.txPower, -20);
+      expect(decoded.interval, 160);
+      expect(decoded.flags, 0xFF);
+    });
+  });
+
   group('QosGwCfgV2', () {
     test('round-trip encode/decode', () {
       final cfg = QosGwCfgV2(
