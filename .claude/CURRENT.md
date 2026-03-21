@@ -1,43 +1,43 @@
 # BLE QoS App — Current State
 
-**最後更新：** 2026-03-20
+**最後更新：** 2026-03-21
 
 ## 進度
 
-- [x] BLE 套件遷移 (flutter_reactive_ble → flutter_blue_plus)
 - [x] Design Spec 全面實作（15 tasks TDD, PR #1 merged）
-  - 深色科技風主題
-  - 三層認證系統（PIN + session + permission guard）
-  - Capability model + registry + negotiator
-  - Drift SQLite DB（devices, alerts, audit_log, telemetry）
-  - GoRouter 路由
-  - Fleet Dashboard + device screen + provisioning + audit
 - [x] Android 實機部署到 Pixel 7a
-- [x] BLE 掃描權限修復（Android 16）
-- [ ] 韌體端廣播封包更新（缺 manufacturer data + service UUID）
-- [ ] App 端 Nordic CID filter 啟用
+- [x] BLE 掃描 + 連線 + PEER_ROLE handshake
+- [x] PING keep-alive（20s 間隔）
+- [x] QosStatus parser 對齊韌體（13-byte full + 4-byte indexed）
+- [x] Dynamic capabilities（GW: Dashboard/Roster/HA/Control, ED: Dashboard/Control）
+- [x] Initial GATT read fallback（設備不送 notify 也能顯示數據）
+- [x] Loading overlay + back navigation
+- [ ] HA tab 實機驗證
+- [ ] Control tab GATT write 實機驗證
+- [ ] Audit log 寫入接線
+- [ ] GW_CFG editor 實作
+- [ ] PIN management 實作
 
 ## 下一步（優先順序）
 
-1. 韌體：加 manufacturer specific data 到 adv（Spec §4.5）
-2. 韌體：加 QoS Service UUID 到 adv
-3. App：啟用 Nordic CID filter
-4. App：Device Screen 連線 + GATT 整合
-5. App：Drift DB 持久化已知裝置
+1. 實機測試 HA tab（GW 連線後切到 HA tab 看 heartbeat）
+2. 實機測試 Control tab（CTRL write profile 切換）
+3. Audit log 寫入接線（feature actions 呼叫 audit repository）
+4. Dashboard 數據標籤優化（Zone 顯示 NEAR/MID/FAR 而非數字）
 
 ## 已知問題
 
-- Android 16 BLE scan 不回傳 device name/serviceUuids（需 FINE_LOCATION + androidUsesFineLocation=true）
-- 韌體廣播封包無 manufacturer data，App 無法識別 QoS 裝置
-- flutter build apk 需要手動 export JAVA_HOME/ANDROID_HOME
+- GW 的 STATUS indexed notify 只有 zone/profile/phy/txPower/interval，缺 rssi/pdr/latency/jitter — 需韌體送完整 struct 或 App 用 METRICS notify 補
+- ED 不主動送 STATUS notify，只靠 initial read — 數據是靜態的
+- flutter build apk 需要手動 export JAVA_HOME
 
 ## 測試
 
-- 91 unit tests passing
-- CI: GitHub Actions flutter analyze + test (passing)
+- 141 unit tests passing
+- 實機驗證：Scanner（3 devices）, Dashboard（GW + ED）, 連線/斷線/重連
 
 ## 環境
 
 - Pixel 7a: 3A271JEHN05259 (Android 16, API 36)
-- Android SDK: /opt/homebrew/share/android-commandlinetools
 - Java 17: /opt/homebrew/opt/openjdk@17
+- 韌體裝置：1 GW + 2 ED, Network 0
