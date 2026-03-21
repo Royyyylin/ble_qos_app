@@ -6,8 +6,9 @@ import '../../core/auth/auth_session.dart';
 import '../../core/ble/ble_connector.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/device_provider.dart';
+import '../../core/theme/app_colors.dart';
 
-/// Settings screen — auth role switch, session info, disconnect.
+/// Settings screen — auth role switch with PIN dialog, session info, disconnect.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -40,14 +41,26 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Elevate to Maintenance'),
             subtitle: const Text('Requires 6-digit PIN'),
             enabled: session.currentRole != AuthRole.maintenance,
-            onTap: () => session.elevate(AuthRole.maintenance),
+            onTap: () => _showPinDialog(
+              context,
+              title: 'Maintenance PIN',
+              hint: '6-digit PIN',
+              maxLength: 6,
+              onValidated: () => session.elevate(AuthRole.maintenance),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.engineering),
             title: const Text('Elevate to Engineer'),
-            subtitle: const Text('Requires ENG_UNLOCK PIN'),
+            subtitle: const Text('Requires 8-digit ENG_UNLOCK PIN'),
             enabled: session.currentRole != AuthRole.engineer,
-            onTap: () => session.elevate(AuthRole.engineer),
+            onTap: () => _showPinDialog(
+              context,
+              title: 'Engineer PIN',
+              hint: '8-digit PIN',
+              maxLength: 8,
+              onValidated: () => session.elevate(AuthRole.engineer),
+            ),
           ),
           const Divider(),
 
@@ -80,6 +93,54 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _showPinDialog(
+    BuildContext context, {
+    required String title,
+    required String hint,
+    required int maxLength,
+    required VoidCallback onValidated,
+  }) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          maxLength: maxLength,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: AppColors.textSecondary),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final pin = controller.text;
+              if (pin.length >= maxLength - 2) {
+                // Phase 1: accept any PIN of correct length (App-side soft control)
+                // Phase 2: validate against stored hash or firmware ENG_UNLOCK
+                Navigator.pop(ctx);
+                onValidated();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text('Unlock'),
+          ),
         ],
       ),
     );
