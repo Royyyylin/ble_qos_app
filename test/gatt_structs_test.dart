@@ -170,6 +170,80 @@ void main() {
     test('given reboot constant when accessed then equals 0x01', () {
       expect(CmdCode.reboot, 0x01);
     });
+
+    test('given_mac_when_buildConnectEdPayload_then_8_bytes_correct', () {
+      final payload = CmdCode.buildConnectEdPayload('AA:BB:CC:DD:EE:FF');
+      expect(payload.length, 8);
+      expect(payload[0], 0x03); // opcode
+      expect(payload[1], 1);    // addr_type default random
+      expect(payload[2], 0xAA);
+      expect(payload[7], 0xFF);
+    });
+
+    test('given_public_addr_when_buildConnectEdPayload_then_addrType_0', () {
+      final payload = CmdCode.buildConnectEdPayload('11:22:33:44:55:66', addrType: 0);
+      expect(payload[1], 0);
+      expect(payload[2], 0x11);
+      expect(payload[7], 0x66);
+    });
+
+    test('given_invalid_mac_when_buildConnectEdPayload_then_throws', () {
+      expect(() => CmdCode.buildConnectEdPayload('INVALID'), throwsArgumentError);
+    });
+
+    test('given_edIndex_when_buildDisconnectEdPayload_then_2_bytes', () {
+      final payload = CmdCode.buildDisconnectEdPayload(3);
+      expect(payload.length, 2);
+      expect(payload[0], 0x04);
+      expect(payload[1], 3);
+    });
+  });
+
+  group('EvtInfoId', () {
+    test('constants match firmware defines', () {
+      expect(EvtInfoId.cmdConnectOk, 0x20);
+      expect(EvtInfoId.cmdConnectFail, 0x21);
+      expect(EvtInfoId.cmdDisconnectOk, 0x22);
+      expect(EvtInfoId.cmdDisconnectFail, 0x23);
+    });
+  });
+
+  group('EdListEntry', () {
+    test('given_9_byte_entry_when_fromBytes_then_parses_correctly', () {
+      // ed_idx=2, addr_type=1, addr=AA:BB:CC:DD:EE:FF, connected=1
+      final data = Uint8List.fromList([
+        0x02, 0x01, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x01,
+      ]);
+      final entry = EdListEntry.fromBytes(data);
+      expect(entry.edIndex, 2);
+      expect(entry.addrType, 1);
+      expect(entry.address, 'AA:BB:CC:DD:EE:FF');
+      expect(entry.connected, true);
+    });
+
+    test('given_disconnected_entry_when_fromBytes_then_connected_false', () {
+      final data = Uint8List.fromList([
+        0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x00,
+      ]);
+      final entry = EdListEntry.fromBytes(data);
+      expect(entry.connected, false);
+    });
+
+    test('given_multi_entry_payload_when_parseList_then_returns_connected_only', () {
+      final data = Uint8List.fromList([
+        // Entry 0: connected
+        0x00, 0x01, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01, 0x01,
+        // Entry 1: disconnected
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Entry 2: connected
+        0x02, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x01,
+      ]);
+      final entries = EdListEntry.parseList(data);
+      expect(entries.length, 2); // only connected entries
+      expect(entries[0].edIndex, 0);
+      expect(entries[1].edIndex, 2);
+      expect(entries[1].address, '11:22:33:44:55:66');
+    });
   });
 
   group('HaHeartbeat', () {

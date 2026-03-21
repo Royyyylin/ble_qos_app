@@ -288,6 +288,84 @@ class QosPingRsp {
 class CmdCode {
   CmdCode._();
   static const int reboot = 0x01;
+  static const int setMaxEd = 0x02;
+  static const int connectEd = 0x03;
+  static const int disconnectEd = 0x04;
+
+  /// Build CMD 0x03 payload: [0x03, addr_type, addr[6]] = 8 bytes.
+  /// [macAddress] format: "AA:BB:CC:DD:EE:FF"
+  /// [addrType] 0=public, 1=random (default random for nRF)
+  static Uint8List buildConnectEdPayload(String macAddress, {int addrType = 1}) {
+    final parts = macAddress.split(':');
+    if (parts.length != 6) {
+      throw ArgumentError('Invalid MAC address: $macAddress');
+    }
+    final data = Uint8List(8);
+    data[0] = connectEd;
+    data[1] = addrType;
+    for (int i = 0; i < 6; i++) {
+      data[2 + i] = int.parse(parts[i], radix: 16);
+    }
+    return data;
+  }
+
+  /// Build CMD 0x04 payload: [0x04, ed_idx] = 2 bytes.
+  static Uint8List buildDisconnectEdPayload(int edIndex) {
+    return Uint8List.fromList([disconnectEd, edIndex]);
+  }
+}
+
+/// EVT INFO IDs for CMD responses (from EVT characteristic notify).
+class EvtInfoId {
+  EvtInfoId._();
+  static const int cmdConnectOk = 0x20;
+  static const int cmdConnectFail = 0x21;
+  static const int cmdDisconnectOk = 0x22;
+  static const int cmdDisconnectFail = 0x23;
+}
+
+/// ED_LIST entry — 9 bytes per ED slot, from ED_LIST characteristic (6f8a9c1a).
+/// Layout: ed_idx(1) + addr_type(1) + addr[6] + connected(1)
+class EdListEntry {
+  final int edIndex;
+  final int addrType;
+  final String address; // "AA:BB:CC:DD:EE:FF"
+  final bool connected;
+
+  const EdListEntry({
+    required this.edIndex,
+    required this.addrType,
+    required this.address,
+    required this.connected,
+  });
+
+  static const int entrySize = 9;
+
+  /// Parse a single 9-byte entry.
+  factory EdListEntry.fromBytes(Uint8List data, [int offset = 0]) {
+    final idx = data[offset];
+    final aType = data[offset + 1];
+    final addr = List.generate(6, (i) =>
+        data[offset + 2 + i].toRadixString(16).padLeft(2, '0').toUpperCase(),
+    ).join(':');
+    final conn = data[offset + 8] != 0;
+    return EdListEntry(
+      edIndex: idx,
+      addrType: aType,
+      address: addr,
+      connected: conn,
+    );
+  }
+
+  /// Parse full ED_LIST payload (N × 9 bytes).
+  static List<EdListEntry> parseList(Uint8List data) {
+    final entries = <EdListEntry>[];
+    for (int i = 0; i + entrySize <= data.length; i += entrySize) {
+      final entry = EdListEntry.fromBytes(data, i);
+      if (entry.connected) entries.add(entry);
+    }
+    return entries;
+  }
 }
 
 /// ha_heartbeat — 21 bytes, HA_HB characteristic (vendor 6f8a9c15)
