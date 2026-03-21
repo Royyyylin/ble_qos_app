@@ -30,6 +30,15 @@ class DeviceScreen extends ConsumerWidget {
     this.showAdminTab = false,
   });
 
+  /// Build the common AppBar with ConnectionStateIndicator.
+  AppBar _buildAppBar(BleConnectionState bleState, {PreferredSizeWidget? bottom}) {
+    return AppBar(
+      title: Text(deviceId),
+      actions: [ConnectionStateIndicator(state: bleState)],
+      bottom: bottom,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(bleConnectionStateProvider);
@@ -38,10 +47,7 @@ class DeviceScreen extends ConsumerWidget {
     // Show error screen if connection lost or errored
     if (bleState == BleConnectionState.error || bleState == BleConnectionState.disconnected) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(deviceId),
-          actions: [ConnectionStateIndicator(state: bleState)],
-        ),
+        appBar: _buildAppBar(bleState),
         body: ConnectionErrorScreen(
           message: bleState == BleConnectionState.error
               ? 'Connection to device failed'
@@ -83,10 +89,7 @@ class DeviceScreen extends ConsumerWidget {
 
     if (tabs.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(deviceId),
-          actions: [ConnectionStateIndicator(state: bleState)],
-        ),
+        appBar: _buildAppBar(bleState),
         body: const Center(
           child: Text(
             'No compatible capabilities',
@@ -98,10 +101,7 @@ class DeviceScreen extends ConsumerWidget {
 
     if (tabs.length == 1) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(deviceId),
-          actions: [ConnectionStateIndicator(state: bleState)],
-        ),
+        appBar: _buildAppBar(bleState),
         body: tabs.first.widget,
       );
     }
@@ -109,9 +109,8 @@ class DeviceScreen extends ConsumerWidget {
     return DefaultTabController(
       length: tabs.length,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(deviceId),
-          actions: [ConnectionStateIndicator(state: bleState)],
+        appBar: _buildAppBar(
+          bleState,
           bottom: TabBar(
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,

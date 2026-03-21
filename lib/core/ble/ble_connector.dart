@@ -8,6 +8,7 @@ import '../gatt/gatt_uuids.dart';
 import 'backoff_config.dart';
 import 'ble_models.dart';
 import 'ble_reconnect.dart';
+import 'ble_service_utils.dart';
 
 /// BLE connector — handles connect + PEER_ROLE handshake.
 class BleConnector {
@@ -100,16 +101,8 @@ class BleConnector {
   }
 
   /// Find a characteristic by UUID string in discovered services.
-  BluetoothCharacteristic? _findCharacteristic(String charUuid) {
-    if (_services == null) return null;
-    final targetGuid = Guid(charUuid);
-    for (final svc in _services!) {
-      for (final c in svc.characteristics) {
-        if (c.uuid == targetGuid) return c;
-      }
-    }
-    return null;
-  }
+  BluetoothCharacteristic? _findCharacteristic(String charUuid) =>
+      findCharacteristicByUuid(_services, charUuid);
 
   Future<void> disconnect() async {
     _connSub?.cancel();

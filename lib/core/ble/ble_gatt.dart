@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'ble_connector.dart';
+import 'ble_service_utils.dart';
 
 /// Thin wrapper for GATT read/write/subscribe operations.
 /// Uses the connected device's discovered services from BleConnector.
@@ -12,17 +13,8 @@ class BleGatt {
 
   final BleConnector _connector;
 
-  BluetoothCharacteristic? _findChar(String charUuid) {
-    final services = _connector.services;
-    if (services == null) return null;
-    final targetGuid = Guid(charUuid);
-    for (final svc in services) {
-      for (final c in svc.characteristics) {
-        if (c.uuid == targetGuid) return c;
-      }
-    }
-    return null;
-  }
+  BluetoothCharacteristic? _findChar(String charUuid) =>
+      findCharacteristicByUuid(_connector.services, charUuid);
 
   /// Read a characteristic value.
   Future<Uint8List> read(String charUuid) async {
