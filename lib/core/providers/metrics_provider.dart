@@ -9,40 +9,40 @@ import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
 
 /// Live STATUS notify stream parsed into QosStatus.
-final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) {
+final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* {
   final device = ref.watch(connectedDeviceProvider);
-  if (device == null) return const Stream.empty();
+  if (device == null) return;
 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
-  return gatt
-      .subscribe(GattUuids.status)
+  final stream = await gatt.subscribe(GattUuids.status);
+  yield* stream
       .where((data) => data.length == QosStatus.size)
       .map((data) => QosStatus.fromBytes(data));
 });
 
 /// Live EVT notify/indicate stream parsed into QosEvtV1.
-final evtStreamProvider = StreamProvider.autoDispose<QosEvtV1>((ref) {
+final evtStreamProvider = StreamProvider.autoDispose<QosEvtV1>((ref) async* {
   final device = ref.watch(connectedDeviceProvider);
-  if (device == null) return const Stream.empty();
+  if (device == null) return;
 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
-  return gatt
-      .subscribe(GattUuids.evt)
+  final stream = await gatt.subscribe(GattUuids.evt);
+  yield* stream
       .where((data) => data.length == QosEvtV1.size)
       .map((data) => QosEvtV1.fromBytes(data));
 });
 
 /// Live METRICS notify stream parsed into QosMetricsV2.
-final metricsStreamProvider = StreamProvider.autoDispose<QosMetricsV2>((ref) {
+final metricsStreamProvider = StreamProvider.autoDispose<QosMetricsV2>((ref) async* {
   final device = ref.watch(connectedDeviceProvider);
-  if (device == null) return const Stream.empty();
+  if (device == null) return;
 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
-  return gatt
-      .subscribe(GattUuids.metricsV2)
+  final stream = await gatt.subscribe(GattUuids.metricsV2);
+  yield* stream
       .where((data) => data.length == QosMetricsV2.size)
       .map((data) => QosMetricsV2.fromBytes(data));
 });
