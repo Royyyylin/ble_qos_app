@@ -260,7 +260,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
             ...devices.map((d) => ScanDeviceTile(
               device: d,
-              onTap: () => _onDeviceTap(d),
+              onConnect: () => _onDeviceTap(d),
             )),
           ],
         );
