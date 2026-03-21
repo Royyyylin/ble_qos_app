@@ -12,7 +12,7 @@ import 'device_provider.dart';
 /// Shared GATT subscribe-and-parse logic for notification providers.
 /// Subscribes to [charUuid], filters by [expectedSize], and maps via [parser].
 Stream<T> _gattNotifyStream<T>(
-  AutoDisposeStreamProviderRef<T> ref, {
+  Ref ref, {
   required String charUuid,
   required int expectedSize,
   required T Function(Uint8List data) parser,

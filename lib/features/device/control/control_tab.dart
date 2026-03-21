@@ -107,8 +107,10 @@ class ControlTab extends ConsumerWidget {
       final connector = ref.read(bleConnectorProvider);
       final gatt = BleGatt(connector);
       await gatt.write(GattUuids.ctrl, ctrl.toBytes());
+      if (!context.mounted) return;
       _showSnackBar(context, 'CTRL written successfully');
     } catch (e) {
+      if (!context.mounted) return;
       _showSnackBar(context, 'CTRL write failed: $e');
     }
   }
