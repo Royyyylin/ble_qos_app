@@ -98,6 +98,23 @@ void main() {
     });
   });
 
+  group('BleConnectionState', () {
+    test('given_BleConnectionState_when_values_accessed_then_includes_error_state', () {
+      expect(BleConnectionState.values, contains(BleConnectionState.error));
+    });
+
+    test('given_BleConnectionState_when_values_accessed_then_has_five_states', () {
+      expect(BleConnectionState.values.length, 5);
+      expect(BleConnectionState.values, containsAll([
+        BleConnectionState.disconnected,
+        BleConnectionState.connecting,
+        BleConnectionState.handshaking,
+        BleConnectionState.connected,
+        BleConnectionState.error,
+      ]));
+    });
+  });
+
   group('EMA calculation', () {
     test('emaRssi with alpha=0.3 computes correctly', () {
       // smoothed = 0.3 * new + 0.7 * prev
