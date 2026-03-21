@@ -8,6 +8,10 @@ import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/ed_roster_provider.dart';
 import 'package:ble_qos_app/features/device/roster/ed_roster_tab.dart';
 
+const _connectedEdListEntry = EdListEntry(
+  edIndex: 0, addrType: 1, address: 'ED:01', connected: true,
+);
+
 ScannedDevice _makeEd(String id, String name) => ScannedDevice(
       id: id,
       name: name,
@@ -47,6 +51,7 @@ void main() {
         EdRosterEntry(
           device: _makeEd('ED:01', 'ED-Alpha'),
           gwStatus: const QosStatus(edIndex: 0, zone: 0, profile: 1),
+          edListEntry: _connectedEdListEntry,
         ),
       ];
 
@@ -99,6 +104,7 @@ void main() {
         EdRosterEntry(
           device: _makeEd('ED:01', 'ED-Alpha'),
           gwStatus: const QosStatus(edIndex: 0, zone: 2, profile: 0),
+          edListEntry: _connectedEdListEntry,
         ),
         EdRosterEntry(
           device: _makeEd('ED:02', 'ED-Beta'),

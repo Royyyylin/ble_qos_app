@@ -56,18 +56,22 @@ void main() {
   });
 
   group('EdRosterEntry', () {
-    test('given_no_gwStatus_when_checked_then_not_connected', () {
+    test('given_no_edListEntry_when_checked_then_not_connected', () {
       final entry = EdRosterEntry(
         device: _makeEd('01'),
         gwStatus: null,
+        edListEntry: null,
       );
       expect(entry.isConnectedToGw, isFalse);
     });
 
-    test('given_gwStatus_when_checked_then_is_connected', () {
+    test('given_edListEntry_when_checked_then_is_connected', () {
       final entry = EdRosterEntry(
         device: _makeEd('01'),
         gwStatus: const QosStatus(edIndex: 0, zone: 1),
+        edListEntry: const EdListEntry(
+          edIndex: 0, addrType: 1, address: 'AA:BB:CC:DD:EE:01', connected: true,
+        ),
       );
       expect(entry.isConnectedToGw, isTrue);
     });

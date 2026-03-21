@@ -99,11 +99,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
     // Clear previous ED status and set new connected device
     ref.read(edStatusMapProvider.notifier).clear();
+    ref.read(gwEdListProvider.notifier).clear();
     ref.read(connectedDeviceProvider.notifier).connect(device);
 
     try {
       // ConnectionOrchestrator: connect → handshake → navigate
       await connector.connect(device.id);
+      // If connected to GW, read ED_LIST for roster
+      if (device.mfgData?.isGateway == true) {
+        await refreshGwEdList(
+            connector, ref.read(gwEdListProvider.notifier));
+      }
       // ConnectionEstablished — navigate to DeviceScreen
       if (mounted) context.push('/device/${device.id}');
     } catch (_) {

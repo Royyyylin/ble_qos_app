@@ -11,6 +11,12 @@ import '../../../core/providers/ed_roster_provider.dart';
 import '../../../core/providers/metrics_provider.dart';
 import '../../../core/theme/app_colors.dart';
 
+/// Refresh ED_LIST after a short delay (give GW time to update).
+Future<void> _refreshEdListDelayed(BleConnector connector, GwEdListNotifier notifier) async {
+  await Future.delayed(const Duration(seconds: 2));
+  await refreshGwEdList(connector, notifier);
+}
+
 /// Zone label from numeric value.
 String _zoneLabel(int zone) => switch (zone) {
       0 => 'NEAR',
@@ -183,6 +189,11 @@ class _EdRosterTabState extends ConsumerState<EdRosterTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
       );
+      // Refresh ED_LIST after connect/disconnect success
+      if (evt.id == EvtInfoId.cmdConnectOk || evt.id == EvtInfoId.cmdDisconnectOk) {
+        final connector = ref.read(bleConnectorProvider);
+        _refreshEdListDelayed(connector, ref.read(gwEdListProvider.notifier));
+      }
     }
   }
 }
