@@ -94,4 +94,26 @@ void main() {
       expect(find.textContaining('Error'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'given QosStatus data when MetricCard renders then has semantics label with metric name and value',
+    (tester) async {
+      final status = makeStatus(rssi: -60, pdr: 88);
+      await tester.pumpWidget(buildTestWidget(
+        overrides: [
+          statusStreamProvider.overrideWith((ref) => Stream.value(status)),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel(RegExp(r'RSSI.*-60.*dBm')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'PDR.*88.*%')),
+        findsOneWidget,
+      );
+    },
+  );
 }

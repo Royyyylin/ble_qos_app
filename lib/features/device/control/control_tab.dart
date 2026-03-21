@@ -41,13 +41,18 @@ class ControlTab extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.send, color: AppColors.primary),
-              title: const Text('Write CTRL'),
-              subtitle: const Text('Send control command'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _writeCtrl(context, ref),
+          Semantics(
+            label: 'Write CTRL: send control command to device',
+            hint: 'Double tap to write',
+            button: true,
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.send, color: AppColors.primary),
+                title: const Text('Write CTRL'),
+                subtitle: const Text('Send control command'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _writeCtrl(context, ref),
+              ),
             ),
           ),
           const SizedBox(height: 8),
