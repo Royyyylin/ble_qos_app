@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/scanner/scanner_screen.dart';
+import 'core/capability/capability_model.dart';
 import 'features/device/device_screen.dart';
 import 'features/provisioning/provisioning_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -14,7 +15,11 @@ final _router = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (_, _) => const ScannerScreen()),
     GoRoute(path: '/device/:id', builder: (_, state) =>
-      DeviceScreen(deviceId: state.pathParameters['id']!)),
+      DeviceScreen(
+        deviceId: state.pathParameters['id']!,
+        capabilities: const [Capability(id: 'qos_monitor', version: 1)],
+        showControlTab: true,
+      )),
     GoRoute(path: '/provisioning/:id', builder: (_, state) =>
       ProvisioningScreen(deviceId: state.pathParameters['id']!)),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
