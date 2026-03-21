@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_registry.dart';
+import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
 
 void main() {
   group('CapabilityRegistry', () {
@@ -30,13 +31,13 @@ void main() {
       );
     });
 
-    test('fallback capabilities for gateway role', () {
-      final caps = CapabilityRegistry.fallbackForRole(0x02); // ROLE_GATEWAY
+    test('given gateway role when fallback then returns GW capabilities', () {
+      final caps = CapabilityRegistry.fallbackForRole(ManufacturerData.roleGateway);
       expect(caps.map((c) => c.id), containsAll(['qos_monitor', 'ed_roster', 'ha_runtime']));
     });
 
-    test('fallback capabilities for end_device role', () {
-      final caps = CapabilityRegistry.fallbackForRole(0x01); // ROLE_END_DEVICE
+    test('given end device role when fallback then returns ED capabilities', () {
+      final caps = CapabilityRegistry.fallbackForRole(ManufacturerData.roleEndDevice);
       expect(caps.map((c) => c.id), contains('qos_monitor'));
     });
   });

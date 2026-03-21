@@ -38,10 +38,10 @@ void main() {
       expect(d.status, DeviceStatus.stale);
     });
 
-    test('stores ManufacturerData field', () {
+    test('given ScannedDevice with GW ManufacturerData when accessed then mfgData is present', () {
       final mfg = ManufacturerData(
         protocolVersion: 1,
-        role: 2,
+        role: ManufacturerData.roleGateway,
         networkId: 1,
         edCount: 3,
         haRole: 1,
