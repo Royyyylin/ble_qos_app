@@ -18,16 +18,32 @@ void main() {
   }
 
   testWidgets(
-    'given normal role when Write CTRL tapped then shows permission denied snackbar',
+    'given_control_tab_when_rendered_then_shows_profile_selector',
     (tester) async {
-      final session = AuthSession(); // defaults to normal role
+      await tester.pumpWidget(buildTestWidget(
+        overrides: [
+          authSessionProvider.overrideWithValue(AuthSession()),
+        ],
+      ));
+
+      expect(find.text('FAST'), findsOneWidget);
+      expect(find.text('BALANCED'), findsOneWidget);
+      expect(find.text('ROBUST'), findsOneWidget);
+      expect(find.text('Apply Profile'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'given normal role when Apply Profile tapped then shows permission denied',
+    (tester) async {
+      final session = AuthSession();
       await tester.pumpWidget(buildTestWidget(
         overrides: [
           authSessionProvider.overrideWithValue(session),
         ],
       ));
 
-      await tester.tap(find.text('Write CTRL'));
+      await tester.tap(find.text('Apply Profile'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Permission denied'), findsOneWidget);
@@ -35,12 +51,10 @@ void main() {
   );
 
   testWidgets(
-    'given maintenance role when Write CTRL tapped then does not show permission denied',
+    'given maintenance role when Apply Profile tapped then does not show permission denied',
     (tester) async {
       final session = AuthSession();
       session.elevate(AuthRole.maintenance);
-
-      // Provide a BleConnector that won't cause disposal issues in test
       final connector = BleConnector();
 
       await tester.pumpWidget(buildTestWidget(
@@ -50,15 +64,10 @@ void main() {
         ],
       ));
 
-      // Tapping Write CTRL with maintenance role should not show permission denied
-      // (it may show CTRL write failed since no real BLE connection exists in test)
-      await tester.tap(find.text('Write CTRL'));
+      await tester.tap(find.text('Apply Profile'));
       await tester.pumpAndSettle();
 
-      // Should NOT show permission denied
       expect(find.textContaining('Permission denied'), findsNothing);
-
-      // Clean up timers from AuthSession.elevate before test framework checks
       session.dispose();
     },
   );
