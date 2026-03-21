@@ -115,10 +115,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       appBar: AppBar(
         title: const Text('Fleet Overview'),
         actions: [
-          IconButton(
-            icon: Icon(_scanning ? Icons.stop : Icons.search),
-            onPressed: _scanning ? _stopScan : _startScan,
-            tooltip: _scanning ? 'Stop scan' : 'Start scan',
+          Semantics(
+            label: _scanning ? 'Stop scan' : 'Start scan',
+            button: true,
+            child: IconButton(
+              icon: Icon(_scanning ? Icons.stop : Icons.search),
+              onPressed: _scanning ? _stopScan : _startScan,
+              tooltip: _scanning ? 'Stop scan' : 'Start scan',
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.settings),

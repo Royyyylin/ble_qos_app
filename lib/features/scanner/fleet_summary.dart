@@ -16,16 +16,19 @@ class FleetSummary extends StatelessWidget {
     final stale = devices.where((d) => d.status == DeviceStatus.stale).length;
     final offline = devices.where((d) => d.status == DeviceStatus.offline).length;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(child: _StatCard(label: 'Online', count: online, color: AppColors.success)),
-          const SizedBox(width: 8),
-          Expanded(child: _StatCard(label: 'Stale', count: stale, color: AppColors.warning)),
-          const SizedBox(width: 8),
-          Expanded(child: _StatCard(label: 'Offline', count: offline, color: AppColors.error)),
-        ],
+    return Semantics(
+      label: 'Fleet summary: $online online, $stale stale, $offline offline',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(child: _StatCard(label: 'Online', count: online, color: AppColors.success)),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(label: 'Stale', count: stale, color: AppColors.warning)),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(label: 'Offline', count: offline, color: AppColors.error)),
+          ],
+        ),
       ),
     );
   }
