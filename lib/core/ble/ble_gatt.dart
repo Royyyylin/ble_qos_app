@@ -47,10 +47,24 @@ class BleGatt {
   }
 
   /// Subscribe to notifications/indications.
-  Stream<Uint8List> subscribe(String charUuid) {
+  /// Registers cancelWhenDisconnected guard before enabling notifications
+  /// to prevent NotificationLeak on disconnect.
+  // ADAPTED: anchor shifted — flutter_blue_plus 1.36.x has cancelWhenDisconnected
+  // on BluetoothDevice (not BluetoothCharacteristic). We listen then register guard.
+  Future<Stream<Uint8List>> subscribe(String charUuid) async {
     final c = _findChar(charUuid);
     if (c == null) throw StateError('Characteristic $charUuid not found');
-    c.setNotifyValue(true);
-    return c.onValueReceived.map((data) => Uint8List.fromList(data));
+    await c.setNotifyValue(true);
+    final stream = c.onValueReceived.map((data) => Uint8List.fromList(data));
+    // Guard: auto-cancel subscription on disconnect (prevents leak)
+    final sub = stream.listen(null);
+    _connector.device?.cancelWhenDisconnected(sub, next: true);
+    // Return a new stream that mirrors the subscription
+    final controller = StreamController<Uint8List>();
+    sub.onData((data) => controller.add(data));
+    sub.onError((e) => controller.addError(e));
+    sub.onDone(() => controller.close());
+    controller.onCancel = () => sub.cancel();
+    return controller.stream;
   }
 }
