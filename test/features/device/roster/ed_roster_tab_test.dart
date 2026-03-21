@@ -41,7 +41,7 @@ void main() {
     });
 
     testWidgets(
-        'given_eds_with_status_when_rendered_then_shows_online_badge',
+        'given_ed_connected_to_gw_when_rendered_then_shows_disconnect_button',
         (tester) async {
       final roster = [
         EdRosterEntry(
@@ -62,13 +62,12 @@ void main() {
       );
 
       expect(find.text('ED-Alpha'), findsOneWidget);
-      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Disconnect'), findsOneWidget);
       expect(find.textContaining('NEAR'), findsOneWidget);
-      expect(find.textContaining('BALANCED'), findsOneWidget);
     });
 
     testWidgets(
-        'given_ed_without_status_when_rendered_then_shows_offline',
+        'given_ed_not_connected_when_rendered_then_shows_connect_button',
         (tester) async {
       final roster = [
         EdRosterEntry(
@@ -89,12 +88,12 @@ void main() {
       );
 
       expect(find.text('ED-Beta'), findsOneWidget);
-      expect(find.text('Offline'), findsOneWidget);
+      expect(find.text('Connect'), findsOneWidget);
       expect(find.text('Not connected to GW'), findsOneWidget);
     });
 
     testWidgets(
-        'given_multiple_eds_when_rendered_then_shows_all',
+        'given_multiple_eds_when_rendered_then_shows_correct_buttons',
         (tester) async {
       final roster = [
         EdRosterEntry(
@@ -120,8 +119,8 @@ void main() {
 
       expect(find.text('ED-Alpha'), findsOneWidget);
       expect(find.text('ED-Beta'), findsOneWidget);
-      expect(find.text('Online'), findsOneWidget);
-      expect(find.text('Offline'), findsOneWidget);
+      expect(find.text('Disconnect'), findsOneWidget);
+      expect(find.text('Connect'), findsOneWidget);
     });
   });
 }

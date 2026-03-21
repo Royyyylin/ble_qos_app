@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ble/ble_connector.dart';
+import '../../../core/ble/ble_gatt.dart';
+import '../../../core/gatt/gatt_cmd_service.dart';
+import '../../../core/gatt/gatt_structs.dart';
 import '../../../core/providers/ed_roster_provider.dart';
+import '../../../core/providers/metrics_provider.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Zone label from numeric value.
@@ -22,15 +29,109 @@ String _profileLabel(int profile) => switch (profile) {
     };
 
 /// ED Roster tab — shows EDs in the same network as the connected GW.
-/// Data sources: scan results (device info) + GW indexed STATUS notify (QoS metrics).
-class EdRosterTab extends ConsumerWidget {
+/// Connect/Disconnect buttons send CMD 0x03/0x04 to the GW.
+class EdRosterTab extends ConsumerStatefulWidget {
   final String deviceId;
 
   const EdRosterTab({super.key, required this.deviceId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EdRosterTab> createState() => _EdRosterTabState();
+}
+
+class _EdRosterTabState extends ConsumerState<EdRosterTab> {
+  /// Track which ED is currently being operated on (by device ID).
+  String? _pendingDeviceId;
+  StreamSubscription<QosEvtV1>? _evtSub;
+
+  @override
+  void dispose() {
+    _evtSub?.cancel();
+    super.dispose();
+  }
+
+  /// Listen for EVT INFO responses to CMD 0x03/0x04.
+  void _listenForEvtResponse() {
+    _evtSub?.cancel();
+    final evtAsync = ref.read(evtStreamProvider);
+    // EVT stream is already subscribed via provider; we watch for changes in build()
+  }
+
+  Future<void> _onConnect(EdRosterEntry entry) async {
+    if (_pendingDeviceId != null) return;
+    setState(() => _pendingDeviceId = entry.device.id);
+
+    try {
+      final connector = ref.read(bleConnectorProvider);
+      final gatt = BleGatt(connector);
+      final cmd = GattCmdService(gatt);
+      await cmd.connectEd(entry.device.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connecting ${entry.device.displayName}...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CMD failed: $e')),
+        );
+      }
+    } finally {
+      // Clear pending after a delay to allow EVT response to arrive
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _pendingDeviceId = null);
+      });
+    }
+  }
+
+  Future<void> _onDisconnect(EdRosterEntry entry) async {
+    if (_pendingDeviceId != null) return;
+    setState(() => _pendingDeviceId = entry.device.id);
+
+    try {
+      final connector = ref.read(bleConnectorProvider);
+      final gatt = BleGatt(connector);
+      final cmd = GattCmdService(gatt);
+      // Use edIndex from gwStatus if available, otherwise best-effort from roster index
+      final edIdx = entry.gwStatus?.edIndex ?? 0;
+      await cmd.disconnectEd(edIdx);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Disconnecting ${entry.device.displayName}...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CMD failed: $e')),
+        );
+      }
+    } finally {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _pendingDeviceId = null);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final roster = ref.watch(edRosterProvider);
+
+    // Watch EVT stream for CMD responses (shows SnackBar on success/fail)
+    ref.listen<AsyncValue<QosEvtV1>>(evtStreamProvider, (_, next) {
+      final evt = next.valueOrNull;
+      if (evt == null || !evt.isAlarm) return; // only INFO type
+      _handleEvtInfo(evt);
+    });
 
     if (roster.isEmpty) {
       return const Center(
@@ -58,16 +159,46 @@ class EdRosterTab extends ConsumerWidget {
       itemCount: roster.length,
       itemBuilder: (context, index) {
         final entry = roster[index];
-        return _EdRosterTile(entry: entry);
+        final isPending = _pendingDeviceId == entry.device.id;
+        return _EdRosterTile(
+          entry: entry,
+          isPending: isPending,
+          onConnect: () => _onConnect(entry),
+          onDisconnect: () => _onDisconnect(entry),
+        );
       },
     );
+  }
+
+  void _handleEvtInfo(QosEvtV1 evt) {
+    final msg = switch (evt.id) {
+      EvtInfoId.cmdConnectOk => 'ED #${evt.v0} connected',
+      EvtInfoId.cmdConnectFail => 'Connect failed (error ${evt.v0})',
+      EvtInfoId.cmdDisconnectOk => 'ED #${evt.v0} disconnected',
+      EvtInfoId.cmdDisconnectFail => 'Disconnect failed (ED #${evt.v0})',
+      _ => null,
+    };
+    if (msg != null && mounted) {
+      setState(() => _pendingDeviceId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+      );
+    }
   }
 }
 
 class _EdRosterTile extends StatelessWidget {
   final EdRosterEntry entry;
+  final bool isPending;
+  final VoidCallback onConnect;
+  final VoidCallback onDisconnect;
 
-  const _EdRosterTile({required this.entry});
+  const _EdRosterTile({
+    required this.entry,
+    required this.isPending,
+    required this.onConnect,
+    required this.onDisconnect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,29 +245,33 @@ class _EdRosterTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _connectionBadge(connected),
+            _actionButton(connected),
           ],
         ),
       ),
     );
   }
 
-  Widget _connectionBadge(bool connected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: connected
-            ? AppColors.success.withValues(alpha: 0.15)
-            : AppColors.stale.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        connected ? 'Online' : 'Offline',
-        style: TextStyle(
-          color: connected ? AppColors.success : AppColors.stale,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+  Widget _actionButton(bool connected) {
+    if (isPending) {
+      return const SizedBox(
+        width: 80,
+        height: 32,
+        child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+
+    return SizedBox(
+      height: 32,
+      child: ElevatedButton(
+        onPressed: connected ? onDisconnect : onConnect,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: connected ? AppColors.error : AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: const TextStyle(fontSize: 12),
         ),
+        child: Text(connected ? 'Disconnect' : 'Connect'),
       ),
     );
   }
