@@ -412,7 +412,179 @@ class EdListEntry {
   }
 }
 
-/// ha_heartbeat — 21 bytes, HA_HB characteristic (vendor 6f8a9c15)
+/// CMD_V2 opcodes — transaction-based command (vendor 6f8a9c1f).
+class CmdV2Opcode {
+  CmdV2Opcode._();
+  static const int reboot = 0x01;
+  static const int setMaxEd = 0x02;
+  static const int connectEd = 0x03;
+  static const int disconnectEd = 0x04;
+  static const int rosterAdd = 0x05;
+  static const int rosterRemove = 0x06;
+}
+
+/// CMD_V2 builder — transaction-based command (vendor 6f8a9c1f).
+/// Wire: txn_id(u8) + opcode(u8) + payload(0-7 bytes).
+class CmdV2 {
+  CmdV2._();
+
+  /// Build a CMD_V2 payload.
+  static Uint8List build(int txnId, int opcode, [Uint8List? payload]) {
+    assert(txnId >= 1 && txnId <= 255, 'txn_id must be 1-255');
+    final pLen = payload?.length ?? 0;
+    final data = Uint8List(2 + pLen);
+    data[0] = txnId;
+    data[1] = opcode;
+    if (payload != null) data.setRange(2, 2 + pLen, payload);
+    return data;
+  }
+
+  /// CMD 0x05 ROSTER_ADD: [addr_type, addr[6]] = 7 bytes payload.
+  static Uint8List rosterAdd(int txnId, String macAddress, {int addrType = 1}) {
+    final parts = macAddress.split(':');
+    if (parts.length != 6) {
+      throw ArgumentError('Invalid MAC address: $macAddress');
+    }
+    final payload = Uint8List(7);
+    payload[0] = addrType;
+    for (int i = 0; i < 6; i++) {
+      payload[1 + (5 - i)] = int.parse(parts[i], radix: 16);
+    }
+    return build(txnId, CmdV2Opcode.rosterAdd, payload);
+  }
+
+  /// CMD 0x06 ROSTER_REMOVE: [logical_slot] = 1 byte payload.
+  static Uint8List rosterRemove(int txnId, int logicalSlot) {
+    return build(txnId, CmdV2Opcode.rosterRemove, Uint8List.fromList([logicalSlot]));
+  }
+
+  /// CMD 0x03 CONNECT_ED: [addr_type, addr[6]] = 7 bytes payload.
+  static Uint8List connectEd(int txnId, String macAddress, {int addrType = 1}) {
+    final parts = macAddress.split(':');
+    if (parts.length != 6) {
+      throw ArgumentError('Invalid MAC address: $macAddress');
+    }
+    final payload = Uint8List(7);
+    payload[0] = addrType;
+    for (int i = 0; i < 6; i++) {
+      payload[1 + (5 - i)] = int.parse(parts[i], radix: 16);
+    }
+    return build(txnId, CmdV2Opcode.connectEd, payload);
+  }
+
+  /// CMD 0x04 DISCONNECT_ED: [ed_idx] = 1 byte payload.
+  static Uint8List disconnectEd(int txnId, int edIndex) {
+    return build(txnId, CmdV2Opcode.disconnectEd, Uint8List.fromList([edIndex]));
+  }
+}
+
+/// CMD_RESULT status codes.
+class CmdResultStatus {
+  CmdResultStatus._();
+  static const int success = 0;
+  static const int error = 1;
+  static const int inProgress = 2;
+  static const int rejected = 3;
+}
+
+/// qos_cmd_result — 6 bytes, CMD_RESULT characteristic (vendor 6f8a9c1e).
+/// Subscribe for async command responses from CMD_V2.
+class CmdResult {
+  final int txnId;    // echoed from CMD_V2
+  final int opcode;
+  final int status;   // CmdResultStatus.*
+  final int v0;       // opcode-specific
+  final int v1;       // opcode-specific
+
+  const CmdResult({
+    required this.txnId,
+    required this.opcode,
+    required this.status,
+    this.v0 = 0,
+    this.v1 = 0,
+  });
+
+  static const int size = 6;
+
+  bool get isSuccess => status == CmdResultStatus.success;
+  bool get isError => status == CmdResultStatus.error;
+
+  factory CmdResult.fromBytes(Uint8List data) {
+    if (data.length < size) {
+      throw ArgumentError('CmdResult: expected >= $size bytes, got ${data.length}');
+    }
+    return CmdResult(
+      txnId: data[0],
+      opcode: data[1],
+      status: data[2],
+      v0: data[3],
+      v1: data[4],
+    );
+  }
+}
+
+/// Roster slot state values (ROSTER_LIST characteristic).
+class RosterSlotState {
+  RosterSlotState._();
+  static const int empty = 0;
+  static const int registered = 1;
+  static const int online = 2;
+}
+
+/// qos_roster_list_entry — 9 bytes per slot, ROSTER_LIST characteristic (6f8a9c20).
+/// Layout: logical_slot(u8) + addr_type(u8) + addr[6] + state(u8).
+class RosterEntry {
+  final int logicalSlot;
+  final int addrType;
+  final String address; // "AA:BB:CC:DD:EE:FF"
+  final int state;      // RosterSlotState.*
+
+  const RosterEntry({
+    required this.logicalSlot,
+    required this.addrType,
+    required this.address,
+    required this.state,
+  });
+
+  static const int entrySize = 9;
+
+  bool get isEmpty => state == RosterSlotState.empty;
+  bool get isRegistered => state == RosterSlotState.registered;
+  bool get isOnline => state == RosterSlotState.online;
+
+  String get stateLabel => switch (state) {
+    RosterSlotState.empty => 'Empty',
+    RosterSlotState.registered => 'Registered',
+    RosterSlotState.online => 'Online',
+    _ => 'Unknown ($state)',
+  };
+
+  factory RosterEntry.fromBytes(Uint8List data, [int offset = 0]) {
+    final slot = data[offset];
+    final aType = data[offset + 1];
+    final addr = List.generate(6, (i) =>
+        data[offset + 2 + (5 - i)].toRadixString(16).padLeft(2, '0').toUpperCase(),
+    ).join(':');
+    final st = data[offset + 8];
+    return RosterEntry(
+      logicalSlot: slot,
+      addrType: aType,
+      address: addr,
+      state: st,
+    );
+  }
+
+  /// Parse full ROSTER_LIST payload (N × 9 bytes). Includes all slots (even empty).
+  static List<RosterEntry> parseList(Uint8List data) {
+    final entries = <RosterEntry>[];
+    for (int i = 0; i + entrySize <= data.length; i += entrySize) {
+      entries.add(RosterEntry.fromBytes(data, i));
+    }
+    return entries;
+  }
+}
+
+/// ha_heartbeat — 21 bytes, HA_HB characteristic (vendor 6f8a9c17)
 /// Layout: haRole(1) + epoch(4LE) + heartbeatCount(4LE) + peerStatus(1)
 ///       + lastFailoverTimestamp(4LE) + lastFailoverReason(1) + reserved(6)
 class HaHeartbeat {
