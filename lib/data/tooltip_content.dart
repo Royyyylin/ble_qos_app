@@ -33,6 +33,11 @@ class TooltipContent {
     body: '範圍 -40 ~ +8 dBm\n值越高距離越遠但越耗電',
   );
 
+  static const throughput = (
+    title: 'Throughput 吞吐量',
+    body: '目前 BLE 資料傳輸速率（Bytes/sec）\n來自 METRICS characteristic',
+  );
+
   static const profile = (
     title: 'Profile QoS 策略',
     body: 'FAST — 2M / 15ms，低延遲\nBALANCED — 1M / 30ms，平衡\nROBUST — Coded / 50ms，高可靠',

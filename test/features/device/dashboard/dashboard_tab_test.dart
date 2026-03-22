@@ -41,6 +41,10 @@ void main() {
     );
   }
 
+  /// Default metrics override (empty stream) to avoid BLE dependency.
+  Override metricsEmpty() =>
+      metricsStreamProvider.overrideWith((ref) => const Stream.empty());
+
   testWidgets(
     'given statusStreamProvider emits QosStatus when DashboardTab renders then shows live metric values',
     (tester) async {
@@ -48,6 +52,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget(
         overrides: [
           statusStreamProvider.overrideWith((ref) => Stream.value(status)),
+          metricsEmpty(),
         ],
       ));
       await tester.pumpAndSettle();
@@ -69,6 +74,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget(
         overrides: [
           statusStreamProvider.overrideWith((ref) => const Stream.empty()),
+          metricsEmpty(),
         ],
       ));
       await tester.pump();
@@ -86,6 +92,7 @@ void main() {
           statusStreamProvider.overrideWith(
             (ref) => Stream.error('BLE disconnected'),
           ),
+          metricsEmpty(),
         ],
       ));
       await tester.pumpAndSettle();
@@ -101,6 +108,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget(
         overrides: [
           statusStreamProvider.overrideWith((ref) => Stream.value(status)),
+          metricsEmpty(),
         ],
       ));
       await tester.pumpAndSettle();
@@ -113,6 +121,48 @@ void main() {
         find.bySemanticsLabel(RegExp(r'PDR.*88.*%')),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'given all-zero QosStatus when DashboardTab renders then shows dashes instead of 0',
+    (tester) async {
+      // All zeros = firmware has no data (ED not in session)
+      const zeroStatus = QosStatus();
+      await tester.pumpWidget(buildTestWidget(
+        overrides: [
+          statusStreamProvider.overrideWith((ref) => Stream.value(zeroStatus)),
+          metricsEmpty(),
+        ],
+      ));
+      await tester.pumpAndSettle();
+
+      // All metric values should be '--' not '0'
+      expect(find.text('0'), findsNothing);
+      expect(find.text('--'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'given metricsStreamProvider emits data when DashboardTab renders then shows throughput',
+    (tester) async {
+      final status = makeStatus();
+      const metrics = QosMetricsV2(tpBps: 1024);
+      await tester.pumpWidget(buildTestWidget(
+        overrides: [
+          statusStreamProvider.overrideWith((ref) => Stream.value(status)),
+          metricsStreamProvider.overrideWith((ref) => Stream.value(metrics)),
+        ],
+      ));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Throughput card may be below fold — scroll down
+      await tester.drag(find.byType(GridView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1024'), findsOneWidget); // Throughput
     },
   );
 }
