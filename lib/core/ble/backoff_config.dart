@@ -8,7 +8,7 @@ class BackoffConfig {
   const BackoffConfig({
     this.baseDelay = const Duration(seconds: 1),
     this.maxDelay = const Duration(seconds: 32),
-    this.maxAttempts = 5,
+    this.maxAttempts = 3,
   });
 
   /// Calculate delay for a given attempt number (0-indexed).

@@ -7,7 +7,7 @@ void main() {
       const config = BackoffConfig();
       expect(config.baseDelay, const Duration(seconds: 1));
       expect(config.maxDelay, const Duration(seconds: 32));
-      expect(config.maxAttempts, 5);
+      expect(config.maxAttempts, 3);
     });
 
     test('given_BackoffConfig_when_delayForAttempt_called_then_doubles_each_attempt', () {

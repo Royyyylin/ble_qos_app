@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String _searchQuery = '';
   bool _scanning = false;
   BleScanner? _scanner;
+  StreamSubscription<List<ScannedDevice>>? _deviceSub;
   bool _connecting = false;
 
   @override
@@ -67,7 +69,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       _scanner!.start();
       if (mounted) setState(() => _scanning = true);
 
-      _scanner!.devices.listen((devices) {
+      _deviceSub?.cancel();
+      _deviceSub = _scanner!.devices.listen((devices) {
         if (mounted) {
           setState(() => _devices = devices);
           // Sync to global provider so Roster tab can access scan results
@@ -81,6 +84,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   void _stopScan({bool updateState = true}) {
+    _deviceSub?.cancel();
+    _deviceSub = null;
     _scanner?.stop();
     if (updateState && mounted) setState(() => _scanning = false);
   }

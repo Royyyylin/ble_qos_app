@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/providers/database_provider.dart';
+import 'core/providers/identity_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/scanner/scanner_screen.dart';
 import 'features/device/device_screen.dart';
@@ -41,8 +42,10 @@ class _BleQosAppState extends ConsumerState<BleQosApp> {
   @override
   void initState() {
     super.initState();
-    // Data retention pruning on app start (spec §7.2)
-    Future.microtask(() {
+    Future.microtask(() async {
+      // Initialize identity cache before scan starts (spec §identity)
+      await ref.read(identityServiceProvider).initialize();
+      // Data retention pruning on app start (spec §7.2)
       final db = ref.read(databaseProvider);
       runDataRetention(db);
     });

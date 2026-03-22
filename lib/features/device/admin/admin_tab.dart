@@ -144,9 +144,13 @@ class AdminTab extends ConsumerWidget {
       ),
     );
 
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !context.mounted) {
+      pinController.dispose();
+      return;
+    }
 
     final pin = pinController.text;
+    pinController.dispose();
     if (pin.length != engPinLength) {
       _showSnackBar(context, 'PIN must be exactly $engPinLength characters');
       return;
