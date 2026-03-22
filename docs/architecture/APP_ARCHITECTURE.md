@@ -55,23 +55,41 @@ CAPS_V2（新 UUID 待定）→ 新增 CBOR characteristic（正式 capability c
 
 **影響範圍**：capability negotiation、tab 顯示、version compatibility、graceful degradation
 
-### 2. 裝置 Identity
+### 2. 裝置 Identity ⏳
 
 **問題**：iOS 不暴露 BLE MAC address，Android 也不應把 MAC 當 domain identity。
 
-**決策**：
-- 裝置 identity 使用平台無關的 stable ID（device_identity / provisioning ID / network_id）
-- MAC address 只作為 transport metadata（BLE 連線用）
-- GoRouter 的 `/device/:id` 和 DB 主鍵都用 stable ID，不用 MAC
+**決策方向**（待細部設計）：
+
+Identity hierarchy：
+```
+device_identity     ← 產品主身份（DB 主鍵、路由 ID、跨 session 穩定）
+  provisioning_id   ← 次要穩定身份（安裝時寫入）
+    transport_id    ← 平台 BLE 連線身份（iOS: CBPeripheral.identifier / Android: MAC）
+      MAC/address   ← 僅 metadata，不進主模型
+```
+
+**大廠做法**：
+- Apple：`CBPeripheral.identifier`（系統 UUID）取回已知裝置；BLE random address 會變，不當長期身份
+- Cisco Meraki：inventory 以 serial / cloud ID / org / network assignment 管理；MAC 可查但非主鍵
+- SmartThings：device profile / capability id / component id，不用 transport address 當 domain model
+
+**待定細節**：
+- [ ] `device_identity` 怎麼生成？（App 端 UUID? 韌體端 serial? provisioning 寫入?）
+- [ ] 韌體是否需要新增 DEVICE_IDENTITY characteristic？或用現有 DEVICE_INFO?
+- [ ] scan result model 怎麼從 MAC-based 改成 identity-based?
+- [ ] GoRouter `/device/:id` 改用什麼 ID?
+- [ ] DB `devices` 表主鍵改成什麼?
 
 **影響範圍**：路由、DB schema、scan result model、所有 device reference
 
-### 3. BLE Lifecycle
+### 3. BLE Lifecycle ⏳（待 #2 stable ID 定案）
 
-**決策**：
+**決策方向**：visible scan + task-scoped connection + explicit background restore
+
 ```
-Scanner 頁面（前景）→ 掃描
-  │ 選擇裝置
+Scanner 頁面（前景）→ filtered scan
+  │ 選擇裝置 → 停掃
   ▼
 Device Session（前景）→ 單台 active 連線 + PING keepalive
   │ 離開頁面 / App 背景化
@@ -79,13 +97,24 @@ Device Session（前景）→ 單台 active 連線 + PING keepalive
 背景 → 停掃、斷線或顯式 OS 背景機制（不靠全局常駐掃描）
   │ 回到前景
   ▼
-恢復 → 明確的 reconnect flow
+恢復 → 重新檢查狀態 + 重建 session
 ```
 
+**大廠做法**：
+- Apple：scan only when you need to → 找到就 stopScan → 背景靠 state restoration，不假設 app 永遠活著
+- Android：不鼓勵 periodic scans → 背景用 PendingIntent scan 或 companion APIs → 長時間連線用 foreground service
+
+**規則**：
 - **不做**：全 App 常駐掃描、2s/3s duty scan 撐全局
-- **掃描**：只在 Scanner 前景頁，離頁即停
+- **掃描**：只在 Scanner 前景頁，選到裝置即停，離頁即停
 - **連線**：同一時間只連一台裝置
 - **背景**：必要時用 OS 原生背景 BLE 機制，不自己撐
+- **恢復**：回前景視為可能中斷，重新檢查狀態
+
+**待定細節**：
+- [ ] 背景恢復具體用哪個 OS 機制？（iOS state restoration / Android companion device?）
+- [ ] scan 停止後 scan results 保留多久？（TTL?）
+- [ ] session 斷線後重連 flow 的狀態機定義
 
 ### 4. Command Timeout + Error Taxonomy
 
@@ -123,31 +152,37 @@ Device Session（前景）→ 單台 active 連線 + PING keepalive
 
 **原則**：先對齊 firmware authority，再談 app UX 細化
 
-### 6. App/FW 相容矩陣
+### 6. App/FW 相容矩陣 ⏳（CAP 已定案，可開始）
 
-**流程**：
+**Capability negotiation read order**：
 ```
-連線後 → 讀 FW_VERSION + DEVICE_INFO + CAP
-  → 對照相容矩陣
-  → 決定顯示哪些功能
-  → 不相容的功能 graceful degrade（灰色 + 提示「需要韌體 vX.Y」）
+連線後 →
+  1. 讀 FW_VERSION（6f8a9c1b）
+  2. 讀 DEVICE_INFO（6f8a9c1c）
+  3. 嘗試讀 CAPS_V2（新 UUID）
+     ├─ 存在 → versioned capability negotiation（CBOR: id + version）
+     └─ 不存在 → fallback 讀 CAP v1（6f8a9c19，bitmask）
+  4. 對照相容矩陣 → 決定顯示哪些功能
+  5. 不相容 → graceful degrade（灰色 + 提示「需要韌體 vX.Y」）
 ```
 
-**相容矩陣格式**：
-```yaml
-compatibility:
-  - app_version: ">=1.0"
-    fw_version: ">=1.2.0"
-    features: [dashboard, roster, control, ha]
-  - app_version: ">=1.0"
-    fw_version: ">=1.3.0"
-    features: [dashboard, roster, control, ha, cmd_v2, admin]
-```
+**大廠做法**：
+- Meraki：已發佈 major version 只做 backward-compatible 變更；breaking change 走 deprecation/sunset
+- SmartThings：capability = capabilityId + version；未知 capability 不顯示即可
+- Azure DTDL：v2/v3 混用逐步遷移
 
 **規則**：
 - App 不得假設韌體版本，必須動態讀取
 - 功能開關由 capability + version 推導，不靠 route 參數硬傳
 - `showControlTab` / `showAdminTab` 由 `role + capability + version` 三者共同決定
+- 未知 capability → graceful ignore（不 crash、不阻擋其他功能）
+- 不相容功能 → 只關閉該 feature，不拖垮整體
+
+**待定細節**：
+- [ ] CAPS_V2 的 UUID 分配
+- [ ] CBOR schema 定義（`[{id: string, version: int}, ...]`?）
+- [ ] 相容矩陣是寫死 App code 還是可遠端更新？
+- [ ] graceful degradation 的 UI 具體長什麼樣？
 
 ---
 
