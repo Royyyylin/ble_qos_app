@@ -105,18 +105,60 @@ class QosStatus {
 }
 
 /// qos_metrics_v2 — 20 bytes, METRICS characteristic (0x2A23)
+/// Layout (firmware qos_service.h):
+///   pdr_x100(u16LE), lat_ms(u16LE), jit_ms(u16LE), rssi(int8),
+///   prof(u8), phy(u8), tx_power(int8), tp_Bps(u16LE), tp_peak_Bps(u16LE),
+///   enomem_cnt(u16LE), eagain_cnt(u16LE), min_stack_free(u16LE)
 class QosMetricsV2 {
-  final Uint8List raw;
+  final int pdr;          // 0-100 (%)
+  final int latency;      // ms
+  final int jitter;       // ms
+  final int rssi;         // dBm
+  final int profile;      // FAST=0, BALANCED=1, ROBUST=2
+  final int phy;          // 1M=1, 2M=2, CODED_S8=4
+  final int txPower;      // dBm
+  final int tpBps;        // throughput bytes/sec
+  final int tpPeakBps;    // peak throughput bytes/sec
+  final int enomemCnt;    // notify ENOMEM counter
+  final int eagainCnt;    // notify EAGAIN counter
+  final int minStackFree; // min free stack bytes
 
-  const QosMetricsV2(this.raw);
+  const QosMetricsV2({
+    this.pdr = 0,
+    this.latency = 0,
+    this.jitter = 0,
+    this.rssi = 0,
+    this.profile = 0,
+    this.phy = 0,
+    this.txPower = 0,
+    this.tpBps = 0,
+    this.tpPeakBps = 0,
+    this.enomemCnt = 0,
+    this.eagainCnt = 0,
+    this.minStackFree = 0,
+  });
 
   static const int size = 20;
 
   factory QosMetricsV2.fromBytes(Uint8List data) {
-    if (data.length != size) {
-      throw ArgumentError('QosMetricsV2: expected $size bytes, got ${data.length}');
+    if (data.length < size) {
+      throw ArgumentError('QosMetricsV2: expected >= $size bytes, got ${data.length}');
     }
-    return QosMetricsV2(Uint8List.fromList(data));
+    final bd = ByteData.sublistView(data);
+    return QosMetricsV2(
+      pdr: (bd.getUint16(0, Endian.little) / 100).round(),
+      latency: bd.getUint16(2, Endian.little),
+      jitter: bd.getUint16(4, Endian.little),
+      rssi: bd.getInt8(6),
+      profile: bd.getUint8(7),
+      phy: bd.getUint8(8),
+      txPower: bd.getInt8(9),
+      tpBps: bd.getUint16(10, Endian.little),
+      tpPeakBps: bd.getUint16(12, Endian.little),
+      enomemCnt: bd.getUint16(14, Endian.little),
+      eagainCnt: bd.getUint16(16, Endian.little),
+      minStackFree: bd.getUint16(18, Endian.little),
+    );
   }
 }
 
