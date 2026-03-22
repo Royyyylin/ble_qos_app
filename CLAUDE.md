@@ -37,10 +37,9 @@
 - Conventional commits
 - Push 到 feature branch，CI-green 後 auto-merge
 
-## 未定案事項（阻擋 production code）
+## 架構基石（6/6 全部定案）
 
-見 `docs/architecture/APP_ARCHITECTURE.md` 追蹤清單。
-項目 1（CAP 格式）和項目 2（Stable ID）未定案前，不應開始對應模組的 production 重構。
+見 `docs/architecture/APP_ARCHITECTURE.md` 追蹤清單。所有 6 項基石已定案，可開始 production 實作。
 
 ## 韌體 Repo 位置
 
