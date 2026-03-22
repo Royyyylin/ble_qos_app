@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_uuids.dart';
 import '../identity/device_identity_service.dart';
+import '../providers/identity_provider.dart';
 import 'ble_models.dart';
 import 'manufacturer_data.dart';
 
@@ -189,8 +190,11 @@ class BleScanner {
 /// Injects DeviceIdentityService for MAC→StableId resolution.
 final bleScannerProvider = Provider<BleScanner>((ref) {
   final scanner = BleScanner();
-  // Identity service injection — will be wired when identityServiceProvider exists
-  // scanner.identityService = ref.watch(identityServiceProvider);
+  try {
+    scanner.identityService = ref.watch(identityServiceProvider);
+  } catch (_) {
+    // identityServiceProvider not yet initialized — scanner works without it
+  }
   ref.onDispose(() => scanner.dispose());
   return scanner;
 });

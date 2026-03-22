@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
 import '../identity/device_identity_service.dart';
+import '../providers/identity_provider.dart';
 import 'backoff_config.dart';
 import 'ble_models.dart';
 import 'ble_reconnect.dart';
@@ -162,8 +163,14 @@ class BleConnector {
 }
 
 /// Riverpod provider for the connector.
+/// Injects DeviceIdentityService for StableId→MAC resolution.
 final bleConnectorProvider = Provider<BleConnector>((ref) {
   final connector = BleConnector();
+  try {
+    connector.identityService = ref.watch(identityServiceProvider);
+  } catch (_) {
+    // identityServiceProvider not yet initialized — connector falls back to raw deviceId
+  }
   ref.onDispose(() => connector.dispose());
   return connector;
 });
