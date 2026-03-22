@@ -215,14 +215,26 @@ lib/
 | 5 | Auth session-based 重構 | ✅ 決策完成（C2: GW_CFG Role-1 唯讀 / C3: 5 分鐘） | — |
 | 6 | App/FW 相容矩陣 | ⏳ 可開始（CAP 已定案） | — |
 
-**依賴關係**：
+**建議執行順序**：
 ```
-1 (CAP 格式) ──→ 6 (相容矩陣) ──→ 3 (BLE lifecycle)
-                                      ↑
-2 (Stable ID) ─────────────────────────┘
-4 (Timeout/Error) ── 獨立，可先行
-5 (Auth Session) ── 獨立，可先行
+#4 (Timeout/Error) ── 最獨立，影響 lifecycle/UI/測試
+  ↓
+#2 (Stable ID) ── 卡 routing/DB/scan model/deep link
+  ↓
+#6 (相容矩陣) ── C1 已定，可寫 CAPS_V2/CAP v1/FW_VERSION 規則
+  ↓
+#3 (BLE lifecycle) ── 等 stable ID + timeout 先定，才穩
 ```
+
+**每項最小定義**：
+- **#2**：定 canonical identity hierarchy：`device_identity > provisioning_id > transport_id`，MAC 不進主模型
+- **#4**：定 5 個 timeout：connect / discover / PEER_ROLE / capability read / CMD→EVT
+- **#6**：定 capability negotiation read order：`FW_VERSION → DEVICE_INFO → CAPS_V2 → fallback CAP v1`
+
+**注意事項**（定案後的護欄）：
+- C1：CAP v1 角色寫死為 bootstrap/fallback only，不讓它和 CAPS_V2 長期並列成兩套主邏輯
+- C2：現場 installer 需求另開 maintenance-safe config backlog，不回頭放寬 GW_CFG
+- C3：補明確 UX 規則 — 是否顯示倒數、剩 60 秒警示、Lock now 按鈕、哪些操作延長 session
 
 ---
 
