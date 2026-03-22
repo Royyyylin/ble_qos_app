@@ -158,7 +158,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Fleet Overview'),
         actions: [
@@ -242,6 +244,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 
