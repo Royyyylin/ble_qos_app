@@ -129,7 +129,7 @@ class SettingsScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               final pin = controller.text;
-              if (pin.length >= maxLength - 2) {
+              if (pin.length == maxLength) {
                 // Phase 1: accept any PIN of correct length (App-side soft control)
                 // Phase 2: validate against stored hash or firmware ENG_UNLOCK
                 Navigator.pop(ctx);

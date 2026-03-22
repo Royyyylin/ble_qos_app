@@ -303,8 +303,9 @@ class CmdCode {
     final data = Uint8List(8);
     data[0] = connectEd;
     data[1] = addrType;
+    // BLE address is little-endian on wire: AA:BB:CC:DD:EE:FF → [FF,EE,DD,CC,BB,AA]
     for (int i = 0; i < 6; i++) {
-      data[2 + i] = int.parse(parts[i], radix: 16);
+      data[2 + (5 - i)] = int.parse(parts[i], radix: 16);
     }
     return data;
   }
@@ -345,8 +346,9 @@ class EdListEntry {
   factory EdListEntry.fromBytes(Uint8List data, [int offset = 0]) {
     final idx = data[offset];
     final aType = data[offset + 1];
+    // BLE address stored little-endian: read in reverse for display format
     final addr = List.generate(6, (i) =>
-        data[offset + 2 + i].toRadixString(16).padLeft(2, '0').toUpperCase(),
+        data[offset + 2 + (5 - i)].toRadixString(16).padLeft(2, '0').toUpperCase(),
     ).join(':');
     final conn = data[offset + 8] != 0;
     return EdListEntry(

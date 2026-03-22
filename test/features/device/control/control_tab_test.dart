@@ -22,7 +22,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(buildTestWidget(
         overrides: [
-          authSessionProvider.overrideWithValue(AuthSession()),
+          authSessionProvider.overrideWith((_) =>AuthSession()),
         ],
       ));
 
@@ -39,7 +39,7 @@ void main() {
       final session = AuthSession();
       await tester.pumpWidget(buildTestWidget(
         overrides: [
-          authSessionProvider.overrideWithValue(session),
+          authSessionProvider.overrideWith((_) =>session),
         ],
       ));
 
@@ -59,7 +59,7 @@ void main() {
 
       await tester.pumpWidget(buildTestWidget(
         overrides: [
-          authSessionProvider.overrideWithValue(session),
+          authSessionProvider.overrideWith((_) =>session),
           bleConnectorProvider.overrideWithValue(connector),
         ],
       ));
@@ -68,7 +68,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Permission denied'), findsNothing);
-      session.dispose();
+      // ChangeNotifierProvider auto-disposes the session
     },
   );
 }

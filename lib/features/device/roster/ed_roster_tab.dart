@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,20 +46,6 @@ class EdRosterTab extends ConsumerStatefulWidget {
 class _EdRosterTabState extends ConsumerState<EdRosterTab> {
   /// Track which ED is currently being operated on (by device ID).
   String? _pendingDeviceId;
-  StreamSubscription<QosEvtV1>? _evtSub;
-
-  @override
-  void dispose() {
-    _evtSub?.cancel();
-    super.dispose();
-  }
-
-  /// Listen for EVT INFO responses to CMD 0x03/0x04.
-  void _listenForEvtResponse() {
-    _evtSub?.cancel();
-    final evtAsync = ref.read(evtStreamProvider);
-    // EVT stream is already subscribed via provider; we watch for changes in build()
-  }
 
   Future<void> _onConnect(EdRosterEntry entry) async {
     if (_pendingDeviceId != null) return;
@@ -103,8 +87,15 @@ class _EdRosterTabState extends ConsumerState<EdRosterTab> {
       final connector = ref.read(bleConnectorProvider);
       final gatt = BleGatt(connector);
       final cmd = GattCmdService(gatt);
-      // Use edIndex from gwStatus if available, otherwise best-effort from roster index
-      final edIdx = entry.gwStatus?.edIndex ?? 0;
+      final edIdx = entry.edListEntry?.edIndex ?? entry.gwStatus?.edIndex;
+      if (edIdx == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot disconnect: unknown ED slot')),
+          );
+        }
+        return;
+      }
       await cmd.disconnectEd(edIdx);
 
       if (mounted) {
@@ -135,7 +126,7 @@ class _EdRosterTabState extends ConsumerState<EdRosterTab> {
     // Watch EVT stream for CMD responses (shows SnackBar on success/fail)
     ref.listen<AsyncValue<QosEvtV1>>(evtStreamProvider, (_, next) {
       final evt = next.valueOrNull;
-      if (evt == null || !evt.isAlarm) return; // only INFO type
+      if (evt == null || evt.isAlarm) return; // skip ALARM, handle INFO
       _handleEvtInfo(evt);
     });
 

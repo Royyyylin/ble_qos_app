@@ -173,9 +173,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              // context.go('/settings');
-            },
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),

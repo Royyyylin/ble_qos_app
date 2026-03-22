@@ -7,6 +7,8 @@ import '../data/repositories/alert_repository.dart';
 import '../data/repositories/audit_repository.dart';
 
 /// Singleton database instance.
+/// TODO: Phase 2 — migrate to NativeDatabase(File(...)) with path_provider
+/// for persistent storage across app restarts.
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase(NativeDatabase.memory());
   ref.onDispose(() => db.close());
