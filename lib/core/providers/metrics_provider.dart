@@ -70,9 +70,11 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
   // Initial read (full 13-byte struct)
   try {
     final data = await gatt.read(GattUuids.status);
-    debugPrint('[METRICS] STATUS read ${data.length} bytes');
+    debugPrint('[METRICS] STATUS read ${data.length} bytes: ${data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
     if (data.length >= QosStatus.indexedSize) {
-      yield QosStatus.parse(data);
+      final status = QosStatus.parse(data);
+      debugPrint('[METRICS] STATUS parsed: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} jit=${status.jitter} zone=${status.zone} phy=${status.phy} tx=${status.txPower}');
+      yield status;
     }
   } catch (e) {
     debugPrint('[METRICS] STATUS initial read failed: $e');
@@ -80,7 +82,9 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
 
   // Subscribe to notify (may be 4-byte indexed or 13-byte full)
   try {
+    debugPrint('[METRICS] STATUS subscribing...');
     final stream = await gatt.subscribe(GattUuids.status);
+    debugPrint('[METRICS] STATUS subscribed OK');
     yield* stream
         .where((data) => data.length >= QosStatus.indexedSize)
         .map((data) {
