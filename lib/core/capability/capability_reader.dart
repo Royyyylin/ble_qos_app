@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ble/ble_gatt.dart';
 import '../ble/manufacturer_data.dart';
 import '../gatt/gatt_uuids.dart';
+import '../ble/ble_connector.dart';
+import '../providers/device_provider.dart';
+import 'capability_negotiator.dart';
 import 'capability_model.dart';
 import 'capability_registry.dart';
 
@@ -59,3 +63,25 @@ class CapabilityReader {
     return caps;
   }
 }
+
+/// Provider that reads and negotiates capabilities for the connected device.
+/// Returns a NegotiationResult based on GATT read → role fallback negotiation order.
+final capabilityNegotiationProvider = FutureProvider<NegotiationResult>((ref) async {
+  // Import needed for this provider
+  final connDevice = ref.watch(connectedDeviceProvider);
+  if (connDevice == null) {
+    return const NegotiationResult(
+      enabledTabs: [], incompatible: [], unknown: [],
+    );
+  }
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+  final role = connDevice.role;
+
+  final caps = await CapabilityReader.readCapabilities(
+    gatt: gatt,
+    deviceRole: role,
+  );
+  return CapabilityNegotiator.negotiate(caps);
+});
