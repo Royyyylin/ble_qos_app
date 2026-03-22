@@ -46,10 +46,10 @@
   3. 成功 → versioned capability negotiation
   4. CAPS_V2 不存在 → fallback 到 CAP v1 bitmask
 - **修改點**：
-  - [ ] spec:352 改成描述 CAPS_V2 CBOR，CAP v1 降為 fallback
+  - [x] spec:352 改成描述 CAPS_V2 CBOR，CAP v1 降為 fallback
   - [ ] ble_api.yaml 新增 CAPS_V2 characteristic 定義（UUID 待定）
   - [ ] gatt_services.md 新增 CAPS_V2 說明，CAP v1 標為 legacy fallback
-  - [ ] 在 spec 補一句：`ble_api.yaml 是 App parser / fixture / validator 的 source of truth`
+  - [x] 在 spec 補一句：`ble_api.yaml 是 App parser / fixture / validator 的 source of truth`
   - [ ] 韌體 backlog：實作 CAPS_V2 characteristic（CBOR encode capability list）
 
 ---
@@ -59,27 +59,27 @@
 ### 掃描與連線 lifecycle
 
 - **改 spec:205**（掃描策略）
-  - [ ] 刪除「前景 2s / pause 3s」自管週期掃描
-  - [ ] 改成：Scanner 頁可見 → filtered scan；點擊裝置 → 停掃；離頁/背景 → 停掃
-  - [ ] 背景需求若存在，改用平台原生背景機制
+  - [x] 刪除「前景 2s / pause 3s」自管週期掃描
+  - [x] 改成：Scanner 頁可見 → filtered scan；點擊裝置 → 停掃；離頁/背景 → 停掃
+  - [x] 背景需求若存在，改用平台原生背景機制
 
 - **改 spec:230**（連線流程）
-  - [ ] 補 timeout：connect / discover services / PEER_ROLE handshake / capability read
-  - [ ] 補錯誤分類：permission_denied / bluetooth_off / busy / timeout / out_of_range / gatt_failure / unexpected_disconnect
+  - [x] 補 timeout：connect / discover services / PEER_ROLE handshake / capability read
+  - [x] 補錯誤分類：permission_denied / bluetooth_off / busy / timeout / out_of_range / gatt_failure / unexpected_disconnect
 
 ### 裝置 identity / 路由
 
 - **改 spec:500**（devices 表 / device identity）
-  - [ ] `id` 從「BLE MAC or UUID」改成 `device_id: app-side stable ID`
-  - [ ] 新增 `transport_id: platform BLE identifier`（連線用）
-  - [ ] 新增 `advertised_address: optional metadata only`
-  - [ ] 統一用 `device_identity` 一詞，不混 `mac_address`
-  - [ ] GoRouter `/device/:id` 改成 stable app/device ID
+  - [x] `id` 從「BLE MAC or UUID」改成 `device_id: app-side stable ID`
+  - [x] 新增 `transport_id: platform BLE identifier`（連線用）
+  - [x] 新增 `advertised_address: optional metadata only`
+  - [x] 統一用 `device_identity` 一詞，不混 `mac_address`
+  - [x] GoRouter `/device/:id` 改成 stable app/device ID
 
 ### 狀態管理
 
 - **改 spec:130**（state management 章節）
-  - [ ] 明寫分層：BLE plugin wrapper（只負責 I/O）→ repository/session controller（狀態源）→ Riverpod providers（只暴露 state）
+  - [x] 明寫分層：BLE plugin wrapper（只負責 I/O）→ repository/session controller（狀態源）→ Riverpod providers（只暴露 state）
   - [ ] 補 3 條規則：
     - scan results 有 TTL / stale eviction
     - roster 先合併 scan + GW state，再給 UI
@@ -88,29 +88,29 @@
 ### Auth / Session
 
 - **改 spec:159**（auth 章節）
-  - [ ] 補明確 policy：Role-1 / Role-2 都是 session-based elevation
-  - [ ] app kill / cold start 預設回 Role-0
-  - [ ] local PIN 僅 convenience，不是安全邊界
-  - [ ] local secret 用 secure storage（iOS Keychain / Android EncryptedSharedPreferences）
+  - [x] 補明確 policy：Role-1 / Role-2 都是 session-based elevation
+  - [x] app kill / cold start 預設回 Role-0
+  - [x] local PIN 僅 convenience，不是安全邊界
+  - [x] local secret 用 secure storage（iOS Keychain / Android EncryptedSharedPreferences）
 
 - **改 role-pages:26**（權限模型）
-  - [ ] 對齊 spec 的 session-based 定義
+  - [x] 對齊 spec 的 session-based 定義
 
 - **解決衝突 C2（GW_CFG 權限）**：
-  - [ ] spec:181 改成 GW_CFG: Role-1 read-only, Role-2 write（對齊 ble_api:248 engineer_unlock prerequisite）
-  - [ ] role-pages:39 已正確（installer 唯讀），不用改
+  - [x] spec:181 改成 GW_CFG: Role-1 read-only, Role-2 write（對齊 ble_api:248 engineer_unlock prerequisite）
+  - [x] role-pages:39 已正確（installer 唯讀），不用改
   - [ ] backlog：若 Role-1 有現場調整需求，另開 maintenance-safe config surface（子集 characteristic 或白名單欄位），不放開整個 GW_CFG
 
 - **解決衝突 C3（Engineer 逾時）**：
-  - [ ] role-pages:30 的 60 秒改成 5 分鐘（對齊 ble_api:304 + firmware QOS_ENG_UNLOCK_TIMEOUT_MS）
-  - [ ] spec:162 已是 5 分鐘，不用改
+  - [x] role-pages:30 的 60 秒改成 5 分鐘（對齊 ble_api:304 + firmware QOS_ENG_UNLOCK_TIMEOUT_MS）
+  - [x] spec:162 已是 5 分鐘，不用改
   - [ ] UX guardrail：剩餘 60 秒顯示倒數警示 + Lock now 按鈕 + 危險操作二次確認
 
 ### Capability-driven UI
 
 - **改 spec:374**（capability UI 章節）
-  - [ ] 補 presentation 規則：capability 決定功能 → role 決定可否操作 → UI tab 由三者推導
-  - [ ] 禁止 `showControlTab` / `showAdminTab` route-driven 顯示邏輯
+  - [x] 補 presentation 規則：capability 決定功能 → role 決定可否操作 → UI tab 由三者推導
+  - [x] 禁止 `showControlTab` / `showAdminTab` route-driven 顯示邏輯
 
 ### GATT 命令模型
 
@@ -122,16 +122,16 @@
 
 - **改 spec:249**（Dashboard 章節）
 - **改 role-pages:74**（頁面描述）
-  - [ ] 每個資料卡 4 種狀態：loading / live / stale / unsupported
-  - [ ] HA tab：capability absent → hidden；capability present but condition unmet → explanatory empty state
-  - [ ] Connect / Disconnect / Apply / Role write 統一回饋：loading → success / failure with reason
+  - [x] 每個資料卡 4 種狀態：loading / live / stale / unsupported
+  - [x] HA tab：capability absent → hidden；capability present but condition unmet → explanatory empty state
+  - [x] Connect / Disconnect / Apply / Role write 統一回饋：loading → success / failure with reason
 
 ### 導航
 
 - **改 role-pages:171**（畫面狀態機）
-  - [ ] 補 deep link 進 Device 的行為
-  - [ ] 補 no-back-stack fallback to Scanner root
-  - [ ] 補 Provisioning entry from unprovisioned device tile
+  - [x] 補 deep link 進 Device 的行為
+  - [x] 補 no-back-stack fallback to Scanner root
+  - [x] 補 Provisioning entry from unprovisioned device tile
 
 ---
 
@@ -140,23 +140,23 @@
 ### 資料層與 retention
 
 - **改 spec:564**（data layer 章節）
-  - [ ] telemetry 持久化採降採樣，不是 raw notify 全存
-  - [ ] retention 閾值可配置
-  - [ ] 補 audit export 能力
-  - [ ] DB persistent 為正式方向，in-memory 只限 prototype/test
+  - [x] telemetry 持久化採降採樣，不是 raw notify 全存
+  - [x] retention 閾值可配置
+  - [x] 補 audit export 能力
+  - [x] DB persistent 為正式方向，in-memory 只限 prototype/test
 
 ### 測試策略
 
 - **改 spec:112 或新增 testing 章節**
-  - [ ] 3 層：unit（parser/reducers/auth/timeout/capability）→ widget（scanner/device/error/auth/provisioning）→ integration/HIL（真 BLE）
-  - [ ] flutter_blue_plus 經 adapter 抽象後以 fake 測，不直接 mock plugin
+  - [x] 3 層：unit（parser/reducers/auth/timeout/capability）→ widget（scanner/device/error/auth/provisioning）→ integration/HIL（真 BLE）
+  - [x] flutter_blue_plus 經 adapter 抽象後以 fake 測，不直接 mock plugin
 
 ### 發版與相容矩陣
 
 - **spec:694 後新增章節**
-  - [ ] FW_VERSION + CAP/version 啟動時檢查
-  - [ ] 不相容功能顯示 `requires app update`
-  - [ ] unknown capability graceful ignore
+  - [x] FW_VERSION + CAP/version 啟動時檢查
+  - [x] 不相容功能顯示 `requires app update`
+  - [x] unknown capability graceful ignore
   - [ ] Android Play Data safety / privacy policy
   - [ ] iOS App Store review notes / demo path / crash diagnostics
 
