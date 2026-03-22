@@ -25,5 +25,7 @@ class GattUuids {
   static const evt = '6f8a9c13-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const peerRole = '6f8a9c14-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const haHb = '6f8a9c15-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const edCount = '6f8a9c18-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const capability = '6f8a9c19-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const edList = '6f8a9c1a-2c1a-4b6f-8a11-8ddc1f4e7b25';
 }

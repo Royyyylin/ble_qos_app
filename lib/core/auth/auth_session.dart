@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 /// Three-tier auth roles — spec §3.1.
 enum AuthRole {
@@ -20,7 +21,8 @@ enum AuthRole {
 }
 
 /// Auth session state — manages role elevation, idle + absolute timeouts.
-class AuthSession {
+/// Extends ChangeNotifier so Riverpod widgets rebuild on role changes.
+class AuthSession extends ChangeNotifier {
   AuthRole _role = AuthRole.normal;
   Timer? _idleTimer;
   Timer? _absoluteTimer;
@@ -33,11 +35,13 @@ class AuthSession {
     _role = role;
     _onExpired = onExpired;
     _startTimers();
+    notifyListeners();
   }
 
   void demote() {
     _role = AuthRole.normal;
     _cancelTimers();
+    notifyListeners();
   }
 
   void touch() {
@@ -74,7 +78,9 @@ class AuthSession {
     _absoluteTimer = null;
   }
 
+  @override
   void dispose() {
     _cancelTimers();
+    super.dispose();
   }
 }

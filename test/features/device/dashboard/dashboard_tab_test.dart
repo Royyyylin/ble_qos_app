@@ -52,12 +52,13 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('-55'), findsOneWidget);
-      expect(find.text('1'), findsOneWidget);
-      expect(find.text('2'), findsOneWidget);
-      expect(find.text('-8'), findsOneWidget);
-      expect(find.text('95'), findsOneWidget);
-      expect(find.text('160'), findsOneWidget);
+      // New metric layout: RSSI, PDR, Latency, Jitter, PHY, TX Power
+      expect(find.text('-55'), findsOneWidget);  // RSSI
+      expect(find.text('95'), findsOneWidget);   // PDR
+      expect(find.text('50'), findsOneWidget);   // Latency
+      expect(find.text('5'), findsOneWidget);    // Jitter
+      expect(find.text('2'), findsOneWidget);    // PHY
+      expect(find.text('-8'), findsOneWidget);   // TX Power
     },
   );
 

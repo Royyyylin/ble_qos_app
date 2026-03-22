@@ -9,91 +9,49 @@ import 'package:ble_qos_app/core/gatt/gatt_uuids.dart';
 import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
-/// Control tab — QoS profile selector and CTRL write buttons (spec §6).
+/// QoS profile definitions matching firmware enum.
+const _profiles = [
+  (value: 0, label: 'FAST', desc: 'Low latency, high power'),
+  (value: 1, label: 'BALANCED', desc: 'Default trade-off'),
+  (value: 2, label: 'ROBUST', desc: 'High reliability, higher latency'),
+];
+
+/// Control tab — QoS profile selector and CTRL write (spec §6).
 /// Permission-gated by PermissionGuard.canWrite().
-class ControlTab extends ConsumerWidget {
+class ControlTab extends ConsumerStatefulWidget {
   final String deviceId;
 
   const ControlTab({super.key, required this.deviceId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'QoS Control',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.tune, color: AppColors.primary),
-              title: const Text('QoS Profile'),
-              subtitle: const Text('Select active profile'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Show profile selector
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Semantics(
-            label: 'Write CTRL: send control command to device',
-            hint: 'Double tap to write',
-            button: true,
-            child: Card(
-              child: ListTile(
-                leading: const Icon(Icons.send, color: AppColors.primary),
-                title: const Text('Write CTRL'),
-                subtitle: const Text('Send control command'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _writeCtrl(context, ref),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.settings_ethernet, color: AppColors.primary),
-              title: const Text('Gateway Config'),
-              subtitle: const Text('Edit GW_CFG parameters'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: GW_CFG editor
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  ConsumerState<ControlTab> createState() => _ControlTabState();
+}
 
-  /// Show a [SnackBar] if the widget is still mounted.
-  void _showSnackBar(BuildContext context, String message) {
-    if (context.mounted) {
+class _ControlTabState extends ConsumerState<ControlTab> {
+  int _selectedProfile = 0;
+  bool _writing = false;
+
+  void _showSnackBar(String message) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     }
   }
 
-  /// CTRL write flow: PermissionGuard check → QosCtrl.toBytes() → BleGatt.write()
-  Future<void> _writeCtrl(BuildContext context, WidgetRef ref) async {
+  Future<void> _writeCtrl() async {
     final session = ref.read(authSessionProvider);
     final role = session.currentRole;
 
-    // Permission gate: CTRL requires maintenance+ role
     if (!PermissionGuard.canWrite(role, GattAction.ctrl)) {
-      _showSnackBar(context, 'Permission denied: maintenance role required for CTRL write');
+      _showSnackBar('Permission denied: maintenance role required');
       return;
     }
 
-    // Build default CTRL payload (profile=FAST, phy=2M, tx=0)
+    setState(() => _writing = true);
+
     final ctrl = QosCtrl(
-      profile: 0,
+      profile: _selectedProfile,
       phy: 2,
       txPower: 0,
       interval: 80,
@@ -107,11 +65,78 @@ class ControlTab extends ConsumerWidget {
       final connector = ref.read(bleConnectorProvider);
       final gatt = BleGatt(connector);
       await gatt.write(GattUuids.ctrl, ctrl.toBytes());
-      if (!context.mounted) return;
-      _showSnackBar(context, 'CTRL written successfully');
+      _showSnackBar(
+          'Profile ${_profiles[_selectedProfile].label} written');
     } catch (e) {
-      if (!context.mounted) return;
-      _showSnackBar(context, 'CTRL write failed: $e');
+      _showSnackBar('CTRL write failed: $e');
+    } finally {
+      if (mounted) setState(() => _writing = false);
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('QoS Control', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+
+          // Profile selector
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('QoS Profile',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  ...List.generate(_profiles.length, (i) {
+                    final p = _profiles[i];
+                    return RadioListTile<int>(
+                      value: p.value,
+                      groupValue: _selectedProfile,
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedProfile = v);
+                      },
+                      title: Text(p.label),
+                      subtitle: Text(p.desc,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 12)),
+                      activeColor: AppColors.primary,
+                      dense: true,
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Write button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _writing ? null : _writeCtrl,
+              icon: _writing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child:
+                          CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send),
+              label: Text(_writing ? 'Writing...' : 'Apply Profile'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

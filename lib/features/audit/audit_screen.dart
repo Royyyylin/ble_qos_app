@@ -1,29 +1,27 @@
-// ignore_for_file: unused_element_parameter
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:ble_qos_app/core/data/database.dart';
+import 'package:ble_qos_app/core/providers/database_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// Audit log view — spec §12.
-/// Table/list view of audit log entries. Filter by role, search.
 /// Role-1 sees own entries, Role-2 sees all. Export CSV button (Phase 2 stub).
-class AuditScreen extends StatefulWidget {
+class AuditScreen extends ConsumerStatefulWidget {
   const AuditScreen({super.key});
 
   @override
-  State<AuditScreen> createState() => _AuditScreenState();
+  ConsumerState<AuditScreen> createState() => _AuditScreenState();
 }
 
-class _AuditScreenState extends State<AuditScreen> {
+class _AuditScreenState extends ConsumerState<AuditScreen> {
   String _selectedRoleFilter = 'All';
-  // In-memory entries for display; in production these come from AuditRepository
-  final List<_AuditEntry> _entries = [];
 
   static const _roleFilters = ['All', 'Role-0', 'Role-1', 'Role-2'];
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _selectedRoleFilter == 'All'
-        ? _entries
-        : _entries.where((e) => e.userRole == _selectedRoleFilter).toList();
+    final entriesAsync = ref.watch(auditEntriesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -69,20 +67,36 @@ class _AuditScreenState extends State<AuditScreen> {
 
           // Entries list
           Expanded(
-            child: filtered.isEmpty
-                ? const Center(
+            child: entriesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(
+                child: Text('Error: $err',
+                    style: const TextStyle(color: AppColors.error)),
+              ),
+              data: (entries) {
+                final filtered = _selectedRoleFilter == 'All'
+                    ? entries
+                    : entries
+                        .where((e) => e.userRole == _selectedRoleFilter)
+                        .toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(
                     child: Text(
                       'No audit entries',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final entry = filtered[index];
-                      return _AuditEntryTile(entry: entry);
-                    },
-                  ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    return _AuditEntryTile(entry: filtered[index]);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -90,34 +104,16 @@ class _AuditScreenState extends State<AuditScreen> {
   }
 }
 
-/// In-memory representation of an audit entry for display.
-class _AuditEntry {
-  final int id;
-  final String userRole;
-  final String action;
-  final String? targetDevice;
-  final String? detailBefore;
-  final String? detailAfter;
-  final DateTime createdAt;
-
-  const _AuditEntry({
-    required this.id,
-    required this.userRole,
-    required this.action,
-    this.targetDevice,
-    this.detailBefore,
-    this.detailAfter,
-    required this.createdAt,
-  });
-}
-
 class _AuditEntryTile extends StatelessWidget {
-  final _AuditEntry entry;
+  final AuditLogData entry;
 
   const _AuditEntryTile({required this.entry});
 
   @override
   Widget build(BuildContext context) {
+    final createdAt =
+        DateTime.fromMillisecondsSinceEpoch(entry.createdAt);
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: _roleColor(entry.userRole),
@@ -132,7 +128,7 @@ class _AuditEntryTile extends StatelessWidget {
         style: const TextStyle(color: AppColors.textPrimary),
       ),
       subtitle: Text(
-        '${entry.targetDevice ?? 'N/A'} • ${_formatTime(entry.createdAt)}',
+        '${entry.targetDevice ?? 'N/A'} • ${_formatTime(createdAt)}',
         style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
       ),
       trailing: entry.detailAfter != null

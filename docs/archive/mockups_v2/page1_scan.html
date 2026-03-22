@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BLE QoS Field Tool — Scan</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F3F0;
+    --bg-card: #FFFFFF;
+    --border: #E2DDD6;
+    --border-accent: #D0C8BE;
+    --text-primary: #1A1A1A;
+    --text-secondary: #5C5C5C;
+    --text-dim: #9A9088;
+    --green: #1B8A4A;
+    --green-bg: #E6F7ED;
+    --green-border: #B0DDBF;
+    --amber: #B87A00;
+    --amber-bg: #FFF6E0;
+    --amber-border: #FFDFAA;
+    --red: #D42040;
+    --red-bg: #FFF0F2;
+    --red-border: #FFC8CF;
+    --cyan: #007A8C;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  * { margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg);font-family:'IBM Plex Sans',sans-serif;color:var(--text-primary);min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:32px; }
+  .info-btn { display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;line-height:1;vertical-align:middle;margin-left:4px; }
+  .info-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .tooltip-overlay { display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:100;align-items:flex-end;justify-content:center; }
+  .tooltip-overlay.show { display:flex; }
+  .tooltip-sheet { background:#FFF;border:1px solid var(--border);border-bottom:none;border-radius:16px 16px 0 0;padding:20px 24px 32px;max-width:480px;width:100%;animation:slideUp .25s ease;box-shadow:0 -4px 24px rgba(0,0,0,0.12); }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .tooltip-handle { width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px; }
+  .tooltip-title { font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:8px; }
+  .tooltip-body { font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-secondary);line-height:1.6; }
+  .tooltip-body strong { color:var(--text-primary); }
+  .app-header { display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#FFF;border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:10; }
+  .app-title { font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;letter-spacing:1px; }
+  .scan-status { display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);letter-spacing:.5px; }
+  .scan-dot { width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  .rssi-legend { display:flex;align-items:center;gap:8px;padding:10px 20px;background:#FFF;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:.5px; }
+  .rssi-chip { padding:2px 8px;border-radius:3px;font-weight:600; }
+  .rssi-good { background:var(--green-bg);color:var(--green); }
+  .rssi-mid { background:var(--amber-bg);color:var(--amber); }
+  .rssi-bad { background:var(--red-bg);color:var(--red); }
+  .section-label { font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;padding:16px 20px 10px;text-transform:uppercase; }
+  .gw-card { background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--cyan);border-radius:0 10px 10px 0;margin:0 16px 10px;overflow:hidden;box-shadow:var(--shadow-md); }
+  .gw-header { display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;user-select:none; }
+  .gw-header:hover { background:#FAFAF8; }
+  .gw-left { display:flex;align-items:center;gap:10px; }
+  .gw-expand { color:var(--cyan);font-size:11px;transition:transform .25s; }
+  .gw-expand.open { transform:rotate(90deg); }
+  .gw-name { font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600; }
+  .gw-right { display:flex;align-items:center;gap:8px; }
+  .gw-role-tag { font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:3px 8px;border-radius:3px;background:#E4F6F9;color:var(--cyan);border:1px solid #B0E0E8; }
+  .gw-rssi { font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600; }
+  .gw-meta { display:flex;align-items:center;gap:16px;padding:0 16px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary); }
+  .rssi-bar-wrap { flex:1;height:4px;background:#EAE6E0;border-radius:2px;overflow:hidden; }
+  .rssi-bar { height:100%;border-radius:2px; }
+  .rssi-bar.good { background:var(--green);width:85%; }
+  .fed-tree { max-height:0;overflow:hidden;transition:max-height .35s ease;border-top:0 solid transparent; }
+  .fed-tree.open { max-height:500px;border-top:1px solid var(--border); }
+  .fed-item { display:flex;align-items:center;padding:10px 16px 10px 28px;border-bottom:1px solid #F2EFEB;gap:10px;position:relative; }
+  .fed-item:last-child { border-bottom:none; }
+  .fed-item::before { content:'';position:absolute;left:16px;top:0;bottom:0;width:1px;background:var(--border); }
+  .fed-item::after { content:'';position:absolute;left:16px;top:50%;width:8px;height:1px;background:var(--border); }
+  .fed-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+  .fed-dot.online { background:var(--green);box-shadow:0 0 4px rgba(27,138,74,0.3); }
+  .fed-dot.offline { background:#CCC; }
+  .fed-info { flex:1; }
+  .fed-name { font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600; }
+  .fed-rssi { font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:1px; }
+  .fed-profile-tag { font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 8px;border-radius:3px; }
+  .tag-fast { background:var(--green-bg);color:var(--green); }
+  .tag-bal { background:var(--amber-bg);color:var(--amber); }
+  .tag-off { background:#F0EDEA;color:#AAA; }
+  .fed-ed-count { font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);padding:4px 16px 10px 28px; }
+  .rescan-btn { display:flex;align-items:center;justify-content:center;gap:8px;margin:20px 16px 8px;padding:14px;background:#FFF;border:2px solid var(--border);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:2px;cursor:pointer;border-radius:10px;box-shadow:var(--shadow-sm); }
+  .rescan-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .nav-hint { text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:16px;opacity:.5; }
+  .tap-hint { text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);margin:12px 0 0;opacity:.6; }
+</style>
+</head>
+<body>
+  <div class="tooltip-overlay" id="tooltipOverlay" onclick="closeTooltip()">
+    <div class="tooltip-sheet" onclick="event.stopPropagation()">
+      <div class="tooltip-handle"></div>
+      <div class="tooltip-title" id="tooltipTitle"></div>
+      <div class="tooltip-body" id="tooltipBody"></div>
+    </div>
+  </div>
+  <div class="app-header">
+    <span class="app-title">BLE QoS Field Tool</span>
+    <div class="scan-status"><div class="scan-dot"></div> SCANNING</div>
+  </div>
+  <div class="rssi-legend">
+    RSSI <span class="info-btn" onclick="showTip('RSSI 信號強度','> -65 dBm 強信號（綠）<br>-65 ~ -85 中等（橘）<br>< -85 弱信號（紅）')">ⓘ</span>
+    <span class="rssi-chip rssi-good">> -65</span>
+    <span class="rssi-chip rssi-mid">-65~-85</span>
+    <span class="rssi-chip rssi-bad">< -85</span>
+  </div>
+  <div class="section-label">DEVICES FOUND</div>
+  <div class="gw-card" id="gw1">
+    <div class="gw-header" onclick="toggleGw('gw1')">
+      <div class="gw-left"><span class="gw-expand open" id="gw1-arrow">▶</span><span class="gw-name">FGW_A1B2C3</span></div>
+      <div class="gw-right"><span class="gw-role-tag">GATEWAY</span><span class="gw-rssi" style="color:var(--green)">-42</span></div>
+    </div>
+    <div class="gw-meta"><span>3 ED</span><span class="info-btn" onclick="event.stopPropagation();showTip('ED Count','此 Gateway 目前追蹤的 End Device 數量。')">ⓘ</span><div class="rssi-bar-wrap"><div class="rssi-bar good"></div></div></div>
+    <div class="fed-tree open" id="gw1-tree">
+      <div class="fed-item"><div class="fed-dot online"></div><div class="fed-info"><div class="fed-name">FED_D4E5F6</div><div class="fed-rssi" style="color:var(--green)">-48 dBm</div></div><span class="fed-profile-tag tag-fast">FAST</span></div>
+      <div class="fed-item"><div class="fed-dot online"></div><div class="fed-info"><div class="fed-name">FED_778899</div><div class="fed-rssi" style="color:var(--amber)">-72 dBm</div></div><span class="fed-profile-tag tag-bal">BAL</span></div>
+      <div class="fed-item"><div class="fed-dot offline"></div><div class="fed-info"><div class="fed-name">FED_AABB01</div><div class="fed-rssi" style="color:#AAA">—</div></div><span class="fed-profile-tag tag-off">OFF</span></div>
+      <div class="fed-ed-count">tap gateway to connect →</div>
+    </div>
+  </div>
+  <div class="gw-card" id="gw2">
+    <div class="gw-header" onclick="toggleGw('gw2')">
+      <div class="gw-left"><span class="gw-expand" id="gw2-arrow">▶</span><span class="gw-name">FGW_X9Y8Z7</span></div>
+      <div class="gw-right"><span class="gw-role-tag">GATEWAY</span><span class="gw-rssi" style="color:var(--amber)">-68</span></div>
+    </div>
+    <div class="gw-meta"><span>1 ED</span><div class="rssi-bar-wrap"><div class="rssi-bar" style="background:var(--amber);width:55%"></div></div></div>
+    <div class="fed-tree" id="gw2-tree">
+      <div class="fed-item"><div class="fed-dot online"></div><div class="fed-info"><div class="fed-name">FED_CC1122</div><div class="fed-rssi" style="color:var(--amber)">-70 dBm</div></div><span class="fed-profile-tag tag-bal">BAL</span></div>
+      <div class="fed-ed-count">tap gateway to connect →</div>
+    </div>
+  </div>
+  <div class="tap-hint">tap gateway card to connect</div>
+  <button class="rescan-btn">⟳ RESCAN</button>
+  <div class="nav-hint">PAGE 1 of 3 · SCAN</div>
+<script>
+function toggleGw(id){document.getElementById(id+'-tree').classList.toggle('open');document.getElementById(id+'-arrow').classList.toggle('open');}
+function showTip(t,b){document.getElementById('tooltipTitle').textContent=t;document.getElementById('tooltipBody').innerHTML=b;document.getElementById('tooltipOverlay').classList.add('show');}
+function closeTooltip(){document.getElementById('tooltipOverlay').classList.remove('show');}
+</script>
+</body>
+</html>

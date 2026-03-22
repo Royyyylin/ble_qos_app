@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/providers/database_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/scanner/scanner_screen.dart';
 import 'features/device/device_screen.dart';
@@ -29,8 +30,23 @@ void main() {
   runApp(const ProviderScope(child: BleQosApp()));
 }
 
-class BleQosApp extends StatelessWidget {
+class BleQosApp extends ConsumerStatefulWidget {
   const BleQosApp({super.key});
+
+  @override
+  ConsumerState<BleQosApp> createState() => _BleQosAppState();
+}
+
+class _BleQosAppState extends ConsumerState<BleQosApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Data retention pruning on app start (spec §7.2)
+    Future.microtask(() {
+      final db = ref.read(databaseProvider);
+      runDataRetention(db);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

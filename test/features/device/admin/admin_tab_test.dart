@@ -48,7 +48,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authSessionProvider.overrideWithValue(session),
+            authSessionProvider.overrideWith((_) => session),
           ],
           child: const MaterialApp(
             home: Scaffold(body: AdminTab(deviceId: 'TEST-ADMIN')),
@@ -58,7 +58,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Engineer mode active'), findsOneWidget);
-      session.dispose();
+      // ChangeNotifierProvider auto-disposes the session
     });
 
     testWidgets('given engineer auth when CMD Reboot tapped then shows confirmation dialog', (tester) async {
@@ -68,7 +68,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authSessionProvider.overrideWithValue(session),
+            authSessionProvider.overrideWith((_) => session),
           ],
           child: const MaterialApp(
             home: Scaffold(body: AdminTab(deviceId: 'TEST-ADMIN')),
@@ -82,7 +82,7 @@ void main() {
 
       expect(find.text('Confirm Reboot'), findsOneWidget);
       expect(find.textContaining('reboot the device'), findsOneWidget);
-      session.dispose();
+      // ChangeNotifierProvider auto-disposes the session
     });
   });
 }
