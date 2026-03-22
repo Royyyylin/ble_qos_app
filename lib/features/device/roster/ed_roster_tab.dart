@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/gatt/gatt_structs.dart';
 import '../../../core/providers/ed_roster_provider.dart';
+import '../../../core/providers/metrics_provider.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Zone label from numeric value.
@@ -21,8 +23,9 @@ String _profileLabel(int profile) => switch (profile) {
       _ => '?',
     };
 
-/// ED Roster tab — shows EDs in the same network as the connected GW.
-/// Data sources: scan results (device info) + GW indexed STATUS notify (QoS metrics).
+/// ED Roster tab — shows EDs from two sources:
+/// 1. ROSTER_LIST GATT read (firmware roster slots with state)
+/// 2. Scan results + GW indexed STATUS notify (live QoS metrics)
 class EdRosterTab extends ConsumerWidget {
   final String deviceId;
 
@@ -30,44 +33,213 @@ class EdRosterTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final roster = ref.watch(edRosterProvider);
+    final rosterAsync = ref.watch(rosterListProvider);
+    final scanRoster = ref.watch(edRosterProvider);
 
-    if (roster.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.devices_other, size: 48, color: AppColors.textSecondary),
-            SizedBox(height: 16),
-            Text(
-              'No End Devices found in this network',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'EDs will appear here once discovered via scanning',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
+    return rosterAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildScanOnlyRoster(scanRoster),
+      data: (rosterEntries) {
+        final nonEmpty = rosterEntries.where((e) => !e.isEmpty).toList();
+        if (nonEmpty.isEmpty && scanRoster.isEmpty) {
+          return _buildEmptyState();
+        }
+        return _buildCombinedRoster(nonEmpty, scanRoster, ref);
+      },
+    );
+  }
 
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.devices_other, size: 48, color: AppColors.textSecondary),
+          SizedBox(height: 16),
+          Text(
+            'No End Devices found in this network',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'EDs will appear here once discovered via scanning or added to roster',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScanOnlyRoster(List<EdRosterEntry> scanRoster) {
+    if (scanRoster.isEmpty) return _buildEmptyState();
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: roster.length,
-      itemBuilder: (context, index) {
-        final entry = roster[index];
-        return _EdRosterTile(entry: entry);
-      },
+      itemCount: scanRoster.length,
+      itemBuilder: (_, index) => _ScanEdTile(entry: scanRoster[index]),
+    );
+  }
+
+  Widget _buildCombinedRoster(
+    List<RosterEntry> rosterEntries,
+    List<EdRosterEntry> scanRoster,
+    WidgetRef ref,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // GATT Roster section
+        if (rosterEntries.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.list_alt, size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  'Firmware Roster (${rosterEntries.length} slots)',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  tooltip: 'Refresh roster',
+                  onPressed: () => ref.invalidate(rosterListProvider),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          for (final entry in rosterEntries)
+            _RosterSlotTile(
+              entry: entry,
+              onRemove: () => _removeFromRoster(ref, entry),
+            ),
+          const SizedBox(height: 16),
+        ],
+        // Scan-based section
+        if (scanRoster.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Discovered EDs (${scanRoster.length})',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          for (final entry in scanRoster)
+            _ScanEdTile(
+              entry: entry,
+              onAddToRoster: entry.device.mac != null
+                  ? () => _addToRoster(ref, entry.device.mac!)
+                  : null,
+            ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _addToRoster(WidgetRef ref, String macAddress) async {
+    final cmdService = ref.read(cmdV2ServiceProvider);
+    final result = await cmdService.rosterAdd(macAddress);
+    if (result != null && result.isSuccess) {
+      ref.invalidate(rosterListProvider);
+    }
+  }
+
+  Future<void> _removeFromRoster(WidgetRef ref, RosterEntry entry) async {
+    final cmdService = ref.read(cmdV2ServiceProvider);
+    final result = await cmdService.rosterRemove(entry.logicalSlot);
+    if (result != null && result.isSuccess) {
+      ref.invalidate(rosterListProvider);
+    }
+  }
+}
+
+/// Tile for GATT ROSTER_LIST entries.
+class _RosterSlotTile extends StatelessWidget {
+  final RosterEntry entry;
+  final VoidCallback? onRemove;
+
+  const _RosterSlotTile({required this.entry, this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = entry.isOnline;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          isOnline ? Icons.link : Icons.link_off,
+          color: isOnline ? AppColors.success : AppColors.stale,
+          size: 20,
+        ),
+        title: Text(
+          entry.address,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontFamily: AppColors.monoFontFamily,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          'Slot ${entry.logicalSlot} · ${entry.stateLabel}',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _stateBadge(entry),
+            if (onRemove != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, size: 20),
+                color: AppColors.error,
+                tooltip: 'Remove from roster',
+                onPressed: onRemove,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stateBadge(RosterEntry entry) {
+    final (color, label) = switch (entry.state) {
+      RosterSlotState.online => (AppColors.success, 'Online'),
+      RosterSlotState.registered => (AppColors.warning, 'Registered'),
+      _ => (AppColors.stale, 'Empty'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }
 
-class _EdRosterTile extends StatelessWidget {
+/// Tile for scan-discovered EDs (existing behavior).
+class _ScanEdTile extends StatelessWidget {
   final EdRosterEntry entry;
+  final VoidCallback? onAddToRoster;
 
-  const _EdRosterTile({required this.entry});
+  const _ScanEdTile({required this.entry, this.onAddToRoster});
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +285,17 @@ class _EdRosterTile extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (onAddToRoster != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, size: 20),
+                color: AppColors.primary,
+                tooltip: 'Add to roster',
+                onPressed: onAddToRoster,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
             const SizedBox(width: 8),
             _connectionBadge(connected),
           ],

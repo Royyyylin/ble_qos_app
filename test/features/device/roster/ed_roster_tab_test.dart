@@ -6,6 +6,7 @@ import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
 import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/ed_roster_provider.dart';
+import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/features/device/roster/ed_roster_tab.dart';
 
 ScannedDevice _makeEd(String id, String name) => ScannedDevice(
@@ -22,6 +23,10 @@ ScannedDevice _makeEd(String id, String name) => ScannedDevice(
       ),
     );
 
+/// Override rosterListProvider with empty list (no GATT connection in tests).
+Override _emptyRosterList() =>
+    rosterListProvider.overrideWith((ref) => Future.value(const <RosterEntry>[]));
+
 void main() {
   group('EdRosterTab', () {
     testWidgets('given_empty_roster_when_rendered_then_shows_empty_state',
@@ -30,12 +35,14 @@ void main() {
         ProviderScope(
           overrides: [
             edRosterProvider.overrideWithValue(const []),
+            _emptyRosterList(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: EdRosterTab(deviceId: 'GW-01')),
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('No End Devices found in this network'), findsOneWidget);
     });
@@ -54,12 +61,14 @@ void main() {
         ProviderScope(
           overrides: [
             edRosterProvider.overrideWithValue(roster),
+            _emptyRosterList(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: EdRosterTab(deviceId: 'GW-01')),
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('ED-Alpha'), findsOneWidget);
       expect(find.text('Online'), findsOneWidget);
@@ -81,12 +90,14 @@ void main() {
         ProviderScope(
           overrides: [
             edRosterProvider.overrideWithValue(roster),
+            _emptyRosterList(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: EdRosterTab(deviceId: 'GW-01')),
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('ED-Beta'), findsOneWidget);
       expect(find.text('Offline'), findsOneWidget);
@@ -111,17 +122,58 @@ void main() {
         ProviderScope(
           overrides: [
             edRosterProvider.overrideWithValue(roster),
+            _emptyRosterList(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: EdRosterTab(deviceId: 'GW-01')),
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('ED-Alpha'), findsOneWidget);
       expect(find.text('ED-Beta'), findsOneWidget);
       expect(find.text('Online'), findsOneWidget);
       expect(find.text('Offline'), findsOneWidget);
+    });
+
+    testWidgets(
+        'given_firmware_roster_entries_when_rendered_then_shows_slot_info',
+        (tester) async {
+      final rosterEntries = [
+        const RosterEntry(
+          logicalSlot: 0,
+          addrType: 1,
+          address: 'AA:BB:CC:DD:EE:FF',
+          state: RosterSlotState.online,
+        ),
+        const RosterEntry(
+          logicalSlot: 1,
+          addrType: 1,
+          address: '11:22:33:44:55:66',
+          state: RosterSlotState.registered,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            edRosterProvider.overrideWithValue(const []),
+            rosterListProvider.overrideWith((ref) => Future.value(rosterEntries)),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: EdRosterTab(deviceId: 'GW-01')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('AA:BB:CC:DD:EE:FF'), findsOneWidget);
+      expect(find.text('11:22:33:44:55:66'), findsOneWidget);
+      expect(find.textContaining('Slot 0'), findsOneWidget);
+      expect(find.textContaining('Slot 1'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Registered'), findsOneWidget);
     });
   });
 }
