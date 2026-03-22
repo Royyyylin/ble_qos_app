@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ble/ble_connector.dart';
 import '../ble/ble_gatt.dart';
 import '../ble/ble_models.dart';
+import '../gatt/cmd_v2_service.dart';
 import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
@@ -127,6 +128,44 @@ final haHeartbeatStreamProvider = StreamProvider.autoDispose<HaHeartbeat>(
     parser: HaHeartbeat.fromBytes,
   ),
 );
+
+/// Live CMD_RESULT notify stream — subscribe for async command responses.
+final cmdResultStreamProvider = StreamProvider.autoDispose<CmdResult>(
+  (ref) => _gattNotifyStream(ref,
+    charUuid: GattUuids.cmdResult,
+    expectedSize: CmdResult.size,
+    parser: CmdResult.fromBytes,
+  ),
+);
+
+/// Read ROSTER_LIST snapshot from GATT. Returns all slots (including empty).
+final rosterListProvider = FutureProvider.autoDispose<List<RosterEntry>>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return const [];
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.rosterList);
+    debugPrint('[ROSTER] read ${data.length} bytes (${data.length ~/ RosterEntry.entrySize} entries)');
+    return RosterEntry.parseList(data);
+  } catch (e) {
+    debugPrint('[ROSTER] read failed: $e');
+    return const [];
+  }
+});
+
+/// CmdV2Service provider — manages transaction-based commands.
+/// Auto-starts CMD_RESULT subscription on creation.
+final cmdV2ServiceProvider = Provider.autoDispose<CmdV2Service>((ref) {
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+  final service = CmdV2Service(gatt);
+  service.startListening();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
 
 /// PING keep-alive: writes PING characteristic every 20s to reset
 /// firmware phone_idle timer (30s timeout). Auto-disposes when
