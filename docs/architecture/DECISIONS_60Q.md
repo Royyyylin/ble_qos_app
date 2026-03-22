@@ -70,7 +70,7 @@
 
 | # | 問題 | 決策 |
 |---|------|------|
-| 29 | CAP 格式 | ⚠️ 現有衝突：spec 想 CBOR，韌體 docs 是 1-byte bitmask → **待定案** |
+| 29 | CAP 格式 | ✅ Additive migration：CAP v1 (6f8a9c19) 保留為 bitmask fallback，新增 CAPS_V2 characteristic (CBOR: id + version)。App 先讀 CAPS_V2，不存在 fallback CAP v1 |
 | 30 | capability version 升級 | additive-only；App 不支援時隱藏功能，不拖垮整體 |
 | 31 | tab 顯示控制 | 不靠 route 參數；由 capability + role 推導 |
 

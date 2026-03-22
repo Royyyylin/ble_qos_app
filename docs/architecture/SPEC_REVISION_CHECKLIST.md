@@ -20,7 +20,7 @@
 
 | # | 衝突 | 文件 A | 文件 B | 決策 |
 |---|------|--------|--------|------|
-| C1 | CAP 格式 | spec:352 定成 CBOR capability list | ble_api:537 + gatt_services:36 是 `uint8_t` 1-byte bitmask | **待定案**（見 P0） |
+| C1 | CAP 格式 | spec:352 定成 CBOR capability list | ble_api:537 + gatt_services:36 是 `uint8_t` 1-byte bitmask | ✅ **Additive migration：保留 CAP v1 bitmask，新增 CAPS_V2 CBOR** |
 | C2 | GW_CFG 權限 | spec:180 給 Role-1 可寫 | role-pages:39 給 installer 唯讀 | ✅ **Role-1 唯讀，Role-2 可寫**（對齊 ble_api:248 engineer_unlock） |
 | C3 | Engineer 逾時 | spec:162 定 5 分鐘 | role-pages:30 定 60 秒 | ✅ **5 分鐘**（對齊 ble_api:304 + firmware src） |
 | C4 | BLE plugin | spec 已定 `flutter_blue_plus` | role-pages:192 推薦 `flutter_reactive_ble` | **統一為 flutter_blue_plus** |
@@ -29,17 +29,28 @@
 
 ## P0：先收斂合約
 
-### CAP 格式定案
+### CAP 格式定案 ✅
 
-- **現狀**：spec 想 CBOR capability list（spec:352），韌體合約是 1-byte bitmask（ble_api:537、gatt_services:36）
-- **兩個選項**：
-  1. 短期保守：維持 bitmask CAP v1，另開新 characteristic 做 CBOR capabilities
-  2. 中期正規：把 CAP 升成版本化 CBOR，同步改 firmware / docs / yaml
+- **決策**：Additive migration — 保留 CAP v1 bitmask，新增 CAPS_V2 CBOR characteristic
+- **理由**：
+  1. 符合 spec:722 的 additive-only 原則（不改既有 UUID 語意）
+  2. CAP (6f8a9c19) 已在韌體合約成形（ble_api:537），直接改語意會斷掉文件/工具/測試/舊韌體
+  3. App 架構需要 CBOR 表達 capability id + version + unknown graceful ignore（spec:341）
+  4. 大廠做法一致：SmartThings（capability + version 並存）、Cisco Meraki（breaking change 出新 version）、Azure DTDL（v2/v3 混用遷移）
+- **語意定義**：
+  - CAP v1 (6f8a9c19)：backward-compatible discovery surface / bootstrap fallback
+  - CAPS_V2（新 UUID 待定）：正式 capability contract（CBOR: capability id + version）
+- **App 連線讀取順序**：
+  1. 讀 FW_VERSION / DEVICE_INFO
+  2. 嘗試讀 CAPS_V2
+  3. 成功 → versioned capability negotiation
+  4. CAPS_V2 不存在 → fallback 到 CAP v1 bitmask
 - **修改點**：
-  - [ ] 定案後更新 spec:352
-  - [ ] 定案後更新 ble_api:537
-  - [ ] 定案後更新 gatt_services:36
+  - [ ] spec:352 改成描述 CAPS_V2 CBOR，CAP v1 降為 fallback
+  - [ ] ble_api.yaml 新增 CAPS_V2 characteristic 定義（UUID 待定）
+  - [ ] gatt_services.md 新增 CAPS_V2 說明，CAP v1 標為 legacy fallback
   - [ ] 在 spec 補一句：`ble_api.yaml 是 App parser / fixture / validator 的 source of truth`
+  - [ ] 韌體 backlog：實作 CAPS_V2 characteristic（CBOR encode capability list）
 
 ---
 

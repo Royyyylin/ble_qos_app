@@ -33,17 +33,25 @@
 
 以下 6 項是所有功能實作的前提，未定案前不應開始對應模組的 production code。
 
-### 1. Capability 格式統一
+### 1. Capability 格式統一 ✅
 
-**現狀衝突**：
-- App spec（`2026-03-19-ble-qos-mobile-app-design.md:352`）定義 CAP 為 CBOR capability list
-- 韌體文件（`gatt_services.md:36`）定義 CAP 為 `uint8_t` 1-byte bitmask
-- `ble_api.yaml` 需要反映最終決定
+**決策**：Additive migration — 不改既有 UUID 語意
 
-**決策**：（待定案）
-- [ ] 選定 CAP 格式（CBOR / bitmask / 其他）
-- [ ] 更新 `ble_api.yaml` 為唯一來源
-- [ ] App 端 `CapabilityRegistry` 從 `ble_api.yaml` 衍生，不硬編碼
+```
+CAP v1 (6f8a9c19)     → 保留為 1-byte bitmask（backward-compatible fallback）
+CAPS_V2（新 UUID 待定）→ 新增 CBOR characteristic（正式 capability contract）
+```
+
+**App 連線讀取順序**：
+1. 讀 `FW_VERSION` / `DEVICE_INFO`
+2. 嘗試讀 `CAPS_V2`（CBOR: `[{id: "qos_monitor", version: 1}, ...]`）
+3. 成功 → versioned capability negotiation
+4. `CAPS_V2` 不存在 → fallback 到 `CAP v1` bitmask
+
+**理由**：
+- 符合 spec:722 additive-only 原則（不改既有 UUID 語意 = 不做 breaking change）
+- CAP v1 已在韌體合約成形（ble_api:537），改語意會斷掉舊韌體/工具/測試
+- 大廠做法一致（SmartThings capability versioning、Cisco Meraki API versioning、Azure DTDL v2/v3 並存）
 
 **影響範圍**：capability negotiation、tab 顯示、version compatibility、graceful degradation
 
@@ -200,12 +208,12 @@ lib/
 
 | # | 項目 | 狀態 | 阻擋 |
 |---|------|------|------|
-| 1 | CAP 格式定案 | ⏳ 待決定 | 2, 6 |
+| 1 | CAP 格式定案 | ✅ Additive migration（CAP v1 bitmask + CAPS_V2 CBOR） | — |
 | 2 | 裝置 stable ID 設計 | ⏳ 待設計 | 3 |
-| 3 | BLE lifecycle 重構 | ⏳ 待 1, 2 | — |
+| 3 | BLE lifecycle 重構 | ⏳ 待 2 | — |
 | 4 | Command timeout + error taxonomy | ⏳ 可先行 | — |
-| 5 | Auth session-based 重構 | ⏳ 可先行 | — |
-| 6 | App/FW 相容矩陣 | ⏳ 待 1 | — |
+| 5 | Auth session-based 重構 | ✅ 決策完成（C2: GW_CFG Role-1 唯讀 / C3: 5 分鐘） | — |
+| 6 | App/FW 相容矩陣 | ⏳ 可開始（CAP 已定案） | — |
 
 **依賴關係**：
 ```
