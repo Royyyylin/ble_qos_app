@@ -10,6 +10,7 @@ import '../ble/ble_models.dart';
 import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
+import 'ed_roster_provider.dart';
 
 /// Parse [data] with [parser], accepting data.length >= [expectedSize].
 /// Returns null if data is too short.
@@ -84,7 +85,12 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
         .where((data) => data.length >= QosStatus.indexedSize)
         .map((data) {
           // debugPrint('[METRICS] STATUS notify ${data.length} bytes');
-          return QosStatus.parse(data);
+          final status = QosStatus.parse(data);
+          // Feed indexed STATUS into EdStatusMap for Roster tab
+          if (data.length < QosStatus.size) {
+            ref.read(edStatusMapProvider.notifier).update(status);
+          }
+          return status;
         });
   } catch (e) {
     // debugPrint('[METRICS] STATUS subscribe failed: $e');

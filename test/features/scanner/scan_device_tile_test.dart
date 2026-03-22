@@ -26,7 +26,7 @@ void main() {
       final device = makeDevice(name: 'GW-Test-01', rssi: -55);
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: ScanDeviceTile(device: device, onTap: () {}),
+          body: ScanDeviceTile(device: device, onConnect: () {}),
         ),
       ));
 
@@ -38,17 +38,33 @@ void main() {
   );
 
   testWidgets(
-    'given ScanDeviceTile when rendered then has double tap hint for accessibility',
+    'given ScanDeviceTile when rendered then shows Connect button',
     (tester) async {
       final device = makeDevice();
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: ScanDeviceTile(device: device, onTap: () {}),
+          body: ScanDeviceTile(device: device, onConnect: () {}),
         ),
       ));
 
-      final semantics = tester.getSemantics(find.byType(ScanDeviceTile));
-      expect(semantics.hint, contains('connect'));
+      expect(find.text('Connect'), findsOneWidget);
+      expect(find.byType(ElevatedButton), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'given ScanDeviceTile when Connect pressed then callback fires',
+    (tester) async {
+      bool fired = false;
+      final device = makeDevice();
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ScanDeviceTile(device: device, onConnect: () => fired = true),
+        ),
+      ));
+
+      await tester.tap(find.text('Connect'));
+      expect(fired, isTrue);
     },
   );
 }

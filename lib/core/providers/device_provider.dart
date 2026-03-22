@@ -12,6 +12,7 @@ class ConnectedDevice {
   final String name;
   final ConnectionMode mode;
   final int role; // ManufacturerData role constant
+  final int? networkId;
 
   /// Platform BLE remote identifier — needed by FlutterBluePlus for connect/GATT.
   final String? mac;
@@ -22,6 +23,7 @@ class ConnectedDevice {
     required this.mode,
     required this.role,
     this.mac,
+    this.networkId,
   });
 }
 
@@ -40,6 +42,7 @@ class ConnectedDeviceNotifier extends StateNotifier<ConnectedDevice?> {
       mode: mode,
       role: role,
       mac: device.mac,
+      networkId: device.networkId,
     );
   }
 

@@ -5,18 +5,22 @@ import '../../core/theme/app_colors.dart';
 
 /// Device card in scanner list — spec §4.
 /// Shows name, RSSI, zone badge, status indicator.
+/// Explicit Connect button — tapping tile body does NOT auto-connect.
 class ScanDeviceTile extends StatelessWidget {
-  const ScanDeviceTile({super.key, required this.device, required this.onTap});
+  const ScanDeviceTile({
+    super.key,
+    required this.device,
+    required this.onConnect,
+  });
 
   final ScannedDevice device;
-  final VoidCallback onTap;
+  final VoidCallback onConnect;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '${device.displayName}, ${device.roleLabel}, ${device.smoothedRssi.round()} dBm, ${device.status.name}',
-      hint: 'Double tap to connect',
-      button: true,
+      label:
+          '${device.displayName}, ${device.roleLabel}, ${device.smoothedRssi.round()} dBm, ${device.status.name}',
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: ListTile(
@@ -27,17 +31,29 @@ class ScanDeviceTile extends StatelessWidget {
           ),
           subtitle: Text(
             '${device.roleLabel} ${device.networkId != null ? "| Net ${device.networkId}" : ""}',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               _rssiWidget(),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              SizedBox(
+                height: 32,
+                child: ElevatedButton(
+                  onPressed: onConnect,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: const Text('Connect'),
+                ),
+              ),
             ],
           ),
-          onTap: onTap,
         ),
       ),
     );
@@ -61,7 +77,8 @@ class ScanDeviceTile extends StatelessWidget {
             : AppColors.error;
     return Text(
       '$rssi dBm',
-      style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
+      style:
+          TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
     );
   }
 }
