@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BLE QoS Field Tool — Engineering</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#F5F3F0;--bg-card:#FFFFFF;--bg-input:#FAF8F5;--bg-section-header:#FFF5F6;--border:#E2DDD6;--border-accent:#D0C8BE;--text-primary:#1A1A1A;--text-secondary:#5C5C5C;--text-dim:#9A9088;--green:#1B8A4A;--red:#D42040;--red-header:#8B1025;--red-bg:#FFF0F2;--red-border:#FFC8CF;--red-deep:#A01830;--amber:#B87A00;--cyan:#007A8C;--shadow-sm:0 1px 3px rgba(0,0,0,0.06);--shadow-md:0 2px 8px rgba(0,0,0,0.08); }
+  * { margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg);font-family:'IBM Plex Sans',sans-serif;color:var(--text-primary);min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:32px; }
+  .info-btn { display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;line-height:1;vertical-align:middle;margin-left:4px; }
+  .info-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .info-btn.on-dark { border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.5); }
+  .info-btn.on-dark:hover { border-color:rgba(255,255,255,.8);color:rgba(255,255,255,.9); }
+  .tooltip-overlay { display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.35);z-index:100;align-items:flex-end;justify-content:center; }
+  .tooltip-overlay.show { display:flex; }
+  .tooltip-sheet { background:#FFF;border:1px solid var(--border);border-bottom:none;border-radius:16px 16px 0 0;padding:20px 24px 32px;max-width:480px;width:100%;animation:slideUp .25s ease;box-shadow:0 -4px 24px rgba(0,0,0,.12); }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .tooltip-handle { width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px; }
+  .tooltip-title { font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:8px; }
+  .tooltip-body { font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-secondary);line-height:1.6; }
+  .tooltip-body strong { color:var(--text-primary); }
+  .eng-header { display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--red-header);position:sticky;top:0;z-index:10;box-shadow:0 2px 12px rgba(139,16,37,.3); }
+  .eng-header-left { display:flex;align-items:center;gap:10px; }
+  .eng-icon { font-size:16px;animation:iconPulse 2s infinite; }
+  @keyframes iconPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .eng-title { font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:#FFF;letter-spacing:2px; }
+  .eng-timer { font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:6px; }
+  .timer-dot { width:7px;height:7px;background:#FF6B7A;border-radius:50%;animation:blink 1s infinite;box-shadow:0 0 8px rgba(255,107,122,.5); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .conn-bar { display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#FFF;border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm); }
+  .conn-left { display:flex;align-items:center;gap:10px; }
+  .conn-back { font-size:16px;color:var(--text-secondary);cursor:pointer; }
+  .conn-device { font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600; }
+  .conn-status { display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green); }
+  .conn-dot { width:7px;height:7px;background:var(--green);border-radius:50%; }
+  .target-section { padding:14px 16px;border-bottom:1px solid var(--border);background:#FFF; }
+  .target-label-row { display:flex;align-items:center;gap:4px;margin-bottom:8px; }
+  .target-label { font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:2px; }
+  .target-select { width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);outline:none;cursor:pointer;-webkit-appearance:none;box-shadow:var(--shadow-sm); }
+  .target-select:focus { border-color:var(--cyan); }
+  .eng-section { margin:10px 16px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:0 10px 10px 0;overflow:hidden;box-shadow:var(--shadow-md); }
+  .eng-section-header { display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--bg-section-header);cursor:pointer;user-select:none; }
+  .eng-section-header:hover { background:#FFE8EB; }
+  .eng-section-title-row { display:flex;align-items:center;gap:6px; }
+  .eng-section-title { font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--text-primary); }
+  .eng-section-meta { display:flex;align-items:center;gap:8px; }
+  .section-byte-count { font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim); }
+  .eng-section-arrow { color:var(--red);font-size:10px;transition:transform .25s;display:inline-block; }
+  .eng-section-arrow.open { transform:rotate(90deg); }
+  .eng-form { max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s ease;padding:0 16px; }
+  .eng-form.open { max-height:700px;padding:14px 16px 16px;border-top:1px solid var(--border); }
+  .form-row { display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F0EDE8; }
+  .form-row:last-of-type { border-bottom:none; }
+  .form-label-group { display:flex;flex-direction:column;gap:2px; }
+  .form-label-row { display:flex;align-items:center;gap:3px; }
+  .form-label { font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary); }
+  .form-sublabel { font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim); }
+  .form-input { background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--text-primary);width:130px;text-align:right;outline:none;box-shadow:var(--shadow-sm); }
+  .form-input:focus { border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,122,140,.1); }
+  .form-select { background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--cyan);outline:none;cursor:pointer;-webkit-appearance:none;box-shadow:var(--shadow-sm); }
+  .form-select:focus { border-color:var(--cyan); }
+  .write-btn { display:block;width:100%;margin-top:14px;padding:12px;background:var(--red-bg);border:2px solid var(--red);color:var(--red);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;border-radius:8px;box-shadow:0 2px 8px rgba(212,32,64,.1); }
+  .write-btn:hover { background:#FFE0E5; }
+  .danger-btn { background:var(--red);border-color:var(--red-deep);color:#FFF;box-shadow:0 2px 12px rgba(212,32,64,.2); }
+  .danger-btn:hover { background:#E82548; }
+  .read-btn { display:block;width:100%;margin-top:8px;padding:8px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;cursor:pointer;border-radius:6px; }
+  .read-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .lock-btn { display:flex;align-items:center;justify-content:center;gap:8px;margin:20px 16px;padding:14px;background:#FFF;border:2px solid var(--border);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;cursor:pointer;border-radius:8px;box-shadow:var(--shadow-sm); }
+  .lock-btn:hover { border-color:var(--text-secondary);color:var(--text-primary); }
+  .nav-hint { text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:12px;opacity:.5; }
+  .form-label-row .info-btn { width:14px;height:14px;font-size:8px; }
+</style>
+</head>
+<body>
+  <div class="tooltip-overlay" id="tooltipOverlay" onclick="closeTooltip()"><div class="tooltip-sheet" onclick="event.stopPropagation()"><div class="tooltip-handle"></div><div class="tooltip-title" id="tooltipTitle"></div><div class="tooltip-body" id="tooltipBody"></div></div></div>
+  <div class="eng-header"><div class="eng-header-left"><span class="eng-icon">⚠</span><span class="eng-title">ENGINEER MODE</span></div><div class="eng-timer"><span class="timer-dot"></span> 4:32 <span class="info-btn on-dark" onclick="showTip('Timeout','工程模式 <strong>5 分鐘</strong>無操作後自動鎖定回 AUTO。每次 WRITE 重置計時。')">ⓘ</span></div></div>
+  <div class="conn-bar"><div class="conn-left"><span class="conn-back">‹</span><span class="conn-device">FGW_A1B2C3</span></div><div class="conn-status"><div class="conn-dot"></div> CONNECTED</div></div>
+  <div class="target-section"><div class="target-label-row"><span class="target-label">TARGET DEVICE</span><span class="info-btn" onclick="showTip('Target Device','選擇要操作的裝置。Gateway → 修改 GW_CFG/Role/Reboot。ED[n] → 修改該 ED 的 CTRL 參數。')">ⓘ</span></div><select class="target-select"><option>FGW_A1B2C3 (Gateway)</option><option>ED[0] FED_D4E5F6</option><option>ED[1] FED_778899</option></select></div>
+
+  <div class="eng-section"><div class="eng-section-header" onclick="toggleSection(this)"><div class="eng-section-title-row"><span class="eng-section-title">CTRL PARAMETERS</span><span class="info-btn" onclick="event.stopPropagation();showTip('CTRL','連線控制參數 9 bytes。寫入後韌體立即套用。GATT: 0x2A21')">ⓘ</span></div><div class="eng-section-meta"><span class="section-byte-count">9 bytes</span><span class="eng-section-arrow open">▶</span></div></div>
+  <div class="eng-form open">
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Profile</span><span class="info-btn" onclick="showTip('Profile','0·FAST → 15ms/2M、1·BALANCED → 30ms/1M、2·ROBUST → 50ms/Coded')">ⓘ</span></div><div class="form-sublabel">auto QoS strategy</div></div><select class="form-select"><option selected>0 · FAST</option><option>1 · BALANCED</option><option>2 · ROBUST</option></select></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">PHY</span><span class="info-btn" onclick="showTip('PHY','2M 最快最短、1M 平衡、Coded S2 500kbps 遠、Coded S8 125kbps 最遠')">ⓘ</span></div><div class="form-sublabel">radio mode</div></div><select class="form-select"><option>1M</option><option selected>2M</option><option>Coded S2</option><option>Coded S8</option></select></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">TX Power</span><span class="info-btn" onclick="showTip('TX Power','發射功率 -40 ~ +8 dBm。值越高距離越遠越耗電。')">ⓘ</span></div><div class="form-sublabel">-40 ~ +8 dBm</div></div><input class="form-input" type="text" value="0 dBm"></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Interval</span><span class="info-btn" onclick="showTip('Interval','連線間隔 7.5~4000 ms。越短延遲越低越耗電。值須為 1.25ms 整數倍。')">ⓘ</span></div><div class="form-sublabel">7.5 ~ 4000 ms</div></div><input class="form-input" type="text" value="15 ms"></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">TP Mode</span><span class="info-btn" onclick="showTip('TP Mode','吞吐量測試。OFF 正常，ON 持續傳輸。測試用，完成後關閉。')">ⓘ</span></div><div class="form-sublabel">throughput test</div></div><select class="form-select"><option selected>OFF</option><option>ON</option></select></div>
+    <button class="write-btn">▸ WRITE CTRL</button><button class="read-btn">READ CURRENT</button>
+  </div></div>
+
+  <div class="eng-section"><div class="eng-section-header" onclick="toggleSection(this)"><div class="eng-section-title-row"><span class="eng-section-title">GW CONFIG</span><span class="info-btn" onclick="event.stopPropagation();showTip('GW CONFIG','Gateway 系統配置 8 bytes。影響所有 ED。GATT: 6f8a9c10')">ⓘ</span></div><div class="eng-section-meta"><span class="section-byte-count">8 bytes</span><span class="eng-section-arrow">▶</span></div></div>
+  <div class="eng-form">
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">TP Mode</span><span class="info-btn" onclick="showTip('GW TP Mode','Gateway 層級吞吐量測試開關。和 CTRL 裡的獨立。')">ⓘ</span></div><div class="form-sublabel">gateway throughput</div></div><select class="form-select"><option selected>OFF</option><option>ON</option></select></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Phone Log</span><span class="info-btn" onclick="showTip('Phone Log','ON → 即時推送 STATUS/METRICS 到 App。OFF → 需手動 REFRESH')">ⓘ</span></div><div class="form-sublabel">BLE notify to phone</div></div><select class="form-select"><option>OFF</option><option selected>ON</option></select></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Cred A</span><span class="info-btn" onclick="showTip('Credit A','ACL 流量控制信用額度。預設 3。')">ⓘ</span></div><div class="form-sublabel">ACL credit</div></div><input class="form-input" type="text" value="3"></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Cred C</span><span class="info-btn" onclick="showTip('Credit C','CONN 層級流量控制。預設 3。')">ⓘ</span></div><div class="form-sublabel">CONN credit</div></div><input class="form-input" type="text" value="3"></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Cred R</span><span class="info-btn" onclick="showTip('Credit R','重傳信用額度。值越大 PDR 越高但延遲增加。預設 3。')">ⓘ</span></div><div class="form-sublabel">RETX credit</div></div><input class="form-input" type="text" value="3"></div>
+    <button class="write-btn">▸ WRITE GW_CFG</button><button class="read-btn">READ CURRENT</button>
+  </div></div>
+
+  <div class="eng-section"><div class="eng-section-header" onclick="toggleSection(this)"><div class="eng-section-title-row"><span class="eng-section-title">ADMIN</span><span class="info-btn" onclick="event.stopPropagation();showTip('ADMIN','系統管理：角色切換、PIN 修改、重啟。切換 Role 會觸發重啟。')">ⓘ</span></div><div class="eng-section-meta"><span class="section-byte-count">system</span><span class="eng-section-arrow">▶</span></div></div>
+  <div class="eng-form">
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Role</span><span class="info-btn" onclick="showTip('Role','GATEWAY / END DEVICE / REPEATER。切換後裝置自動重啟。')">ⓘ</span></div><div class="form-sublabel">changes trigger reboot</div></div><select class="form-select"><option selected>GATEWAY</option><option>END DEVICE</option><option>REPEATER</option></select></div>
+    <div class="form-row"><div class="form-label-group"><div class="form-label-row"><span class="form-label">Change PIN</span><span class="info-btn" onclick="showTip('Change PIN','4~8 位數字。預設 1234。存 flash，重啟後仍有效。')">ⓘ</span></div><div class="form-sublabel">4-8 digit code</div></div><input class="form-input" type="text" placeholder="new PIN" style="width:110px"></div>
+    <button class="write-btn danger-btn">⟳ REBOOT DEVICE</button>
+  </div></div>
+
+  <button class="lock-btn">🔓  LOCK & EXIT</button>
+  <div class="nav-hint">PAGE 3 of 3 · ENGINEERING</div>
+<script>
+function toggleSection(h){h.querySelector('.eng-section-arrow').classList.toggle('open');h.parentElement.querySelector('.eng-form').classList.toggle('open');}
+function showTip(t,b){document.getElementById('tooltipTitle').textContent=t;document.getElementById('tooltipBody').innerHTML=b;document.getElementById('tooltipOverlay').classList.add('show');}
+function closeTooltip(){document.getElementById('tooltipOverlay').classList.remove('show');}
+</script>
+</body>
+</html>

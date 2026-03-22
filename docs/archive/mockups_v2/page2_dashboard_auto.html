@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BLE QoS Field Tool — Dashboard (AUTO)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#F5F3F0;--bg-card:#FFFFFF;--bg-tile:#FAF8F5;--border:#E2DDD6;--border-accent:#D0C8BE;--text-primary:#1A1A1A;--text-secondary:#5C5C5C;--text-dim:#9A9088;--green:#1B8A4A;--green-bg:#E6F7ED;--green-border:#B0DDBF;--amber:#B87A00;--amber-bg:#FFF6E0;--amber-border:#FFDFAA;--red:#D42040;--red-bg:#FFF0F2;--red-border:#FFC8CF;--cyan:#007A8C;--shadow-sm:0 1px 3px rgba(0,0,0,0.06);--shadow-md:0 2px 8px rgba(0,0,0,0.08); }
+  * { margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg);font-family:'IBM Plex Sans',sans-serif;color:var(--text-primary);min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:32px; }
+  .info-btn { display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;line-height:1;vertical-align:middle;margin-left:4px; }
+  .info-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .tooltip-overlay { display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:100;align-items:flex-end;justify-content:center; }
+  .tooltip-overlay.show { display:flex; }
+  .tooltip-sheet { background:#FFF;border:1px solid var(--border);border-bottom:none;border-radius:16px 16px 0 0;padding:20px 24px 32px;max-width:480px;width:100%;animation:slideUp .25s ease;box-shadow:0 -4px 24px rgba(0,0,0,0.12); }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .tooltip-handle { width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px; }
+  .tooltip-title { font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:8px; }
+  .tooltip-body { font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text-secondary);line-height:1.6; }
+  .tooltip-body strong { color:var(--text-primary); }
+  .conn-bar { display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#FFF;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;box-shadow:var(--shadow-sm); }
+  .conn-left { display:flex;align-items:center;gap:10px; }
+  .conn-back { font-size:18px;color:var(--text-secondary);cursor:pointer; }
+  .conn-device { font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600; }
+  .conn-status { display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green); }
+  .conn-dot { width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 6px rgba(27,138,74,0.3); }
+  .section-label { font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;padding:16px 20px 10px;text-transform:uppercase; }
+  .gw-card { background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--cyan);border-radius:0 10px 10px 0;margin:0 16px 10px;padding:16px;box-shadow:var(--shadow-md); }
+  .gw-top-row { display:flex;justify-content:space-between;align-items:center;margin-bottom:12px; }
+  .gw-label { font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600; }
+  .gw-role-tag { font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:3px 8px;border-radius:3px;background:#E4F6F9;color:var(--cyan);border:1px solid #B0E0E8; }
+  .gw-stats { display:flex;gap:10px; }
+  .gw-stat-tile { background:var(--bg-tile);border:1px solid var(--border);border-radius:8px;padding:12px 8px;flex:1;text-align:center;box-shadow:var(--shadow-sm); }
+  .gw-stat-value { font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;line-height:1; }
+  .gw-stat-value.green { color:var(--green); }
+  .gw-stat-label { font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:1.5px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:3px; }
+  .mode-badge { font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--green); }
+  .ed-card { background:var(--bg-card);border:1px solid var(--border);border-radius:10px;margin:0 16px 10px;box-shadow:var(--shadow-md);overflow:hidden;transition:all .2s; }
+  .ed-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+  .ed-card.disconnected { opacity:.45; }
+  .ed-summary { display:flex;align-items:center;padding:14px 16px;cursor:pointer;user-select:none;gap:12px; }
+  .health-dot { width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0; }
+  .health-pass { background:var(--green-bg);border:2px solid var(--green-border);color:var(--green); }
+  .health-warn { background:var(--amber-bg);border:2px solid var(--amber-border);color:var(--amber); }
+  .health-fail { background:var(--red-bg);border:2px solid var(--red-border);color:var(--red); }
+  .health-off { background:#F0EDEA;border:2px solid #DDD;color:#AAA; }
+  .ed-summary-text { flex:1; }
+  .ed-name { font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600; }
+  .ed-health-label { font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;margin-top:2px; }
+  .ed-health-label.pass { color:var(--green); }
+  .ed-health-label.warn { color:var(--amber); }
+  .ed-health-label.fail { color:var(--red); }
+  .ed-health-label.off { color:#AAA; }
+  .ed-summary-right { display:flex;align-items:center;gap:8px; }
+  .ed-profile-mini { font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 8px;border-radius:3px; }
+  .profile-fast-mini { background:var(--green-bg);color:var(--green); }
+  .profile-bal-mini { background:var(--amber-bg);color:var(--amber); }
+  .ed-expand-arrow { color:var(--text-dim);font-size:12px;transition:transform .25s; }
+  .ed-expand-arrow.open { transform:rotate(90deg); }
+  .ed-details { max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s ease;padding:0 14px;border-top:0 solid transparent; }
+  .ed-details.open { max-height:300px;padding:12px 14px 14px;border-top:1px solid var(--border); }
+  .ed-metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:6px; }
+  .metric-tile { background:var(--bg-tile);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center;box-shadow:var(--shadow-sm); }
+  .metric-value { font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;line-height:1; }
+  .metric-label { font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:1.2px;margin-top:4px; }
+  .metric-value.green { color:var(--green); }
+  .metric-value.amber { color:var(--amber); }
+  .metric-value.red { color:var(--red); }
+  .metric-value.cyan { color:var(--cyan); }
+  .ed-profile-row { display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #F0EDE8; }
+  .profile-badge { font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:1px;padding:4px 12px;border-radius:4px; }
+  .profile-fast { background:var(--green-bg);color:var(--green);border:1px solid var(--green-border); }
+  .profile-balanced { background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border); }
+  .refresh-btn { display:block;margin:8px auto 4px;padding:8px 24px;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;cursor:pointer;border-radius:6px; }
+  .refresh-btn:hover { border-color:var(--cyan);color:var(--cyan); }
+  .eng-btn { display:flex;align-items:center;justify-content:center;gap:10px;margin:20px 16px 8px;padding:14px;background:#FFF;border:2px solid var(--border);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:2px;cursor:pointer;border-radius:10px;box-shadow:var(--shadow-sm); }
+  .eng-btn:hover { border-color:var(--text-secondary);color:var(--text-primary); }
+  .nav-hint { text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:16px;opacity:.5; }
+  .gw-stat-label .info-btn { width:13px;height:13px;font-size:8px;margin-left:2px; }
+</style>
+</head>
+<body>
+  <div class="tooltip-overlay" id="tooltipOverlay" onclick="closeTooltip()"><div class="tooltip-sheet" onclick="event.stopPropagation()"><div class="tooltip-handle"></div><div class="tooltip-title" id="tooltipTitle"></div><div class="tooltip-body" id="tooltipBody"></div></div></div>
+  <div class="conn-bar"><div class="conn-left"><span class="conn-back">‹</span><span class="conn-device">FGW_A1B2C3</span></div><div class="conn-status"><div class="conn-dot"></div> CONNECTED</div></div>
+  <div class="section-label">GATEWAY</div>
+  <div class="gw-card"><div class="gw-top-row"><span class="gw-label">FGW_A1B2C3</span><span class="gw-role-tag">GATEWAY</span></div><div class="gw-stats"><div class="gw-stat-tile"><div class="gw-stat-value green">2 / 3</div><div class="gw-stat-label">ED ONLINE <span class="info-btn" onclick="showTip('ED Online','<strong>在線 / 總偵測</strong>。')">ⓘ</span></div></div><div class="gw-stat-tile"><div class="mode-badge">AUTO</div><div class="gw-stat-label">MODE <span class="info-btn" onclick="showTip('Mode','AUTO — 韌體自動調整 QoS。')">ⓘ</span></div></div></div></div>
+  <div class="section-label">END DEVICES</div>
+  <div class="ed-card" id="ed1"><div class="ed-summary" onclick="toggleEd('ed1')"><div class="health-dot health-pass">✓</div><div class="ed-summary-text"><div class="ed-name">FED_D4E5F6</div><div class="ed-health-label pass">PASS — 全部合格</div></div><div class="ed-summary-right"><span class="ed-profile-mini profile-fast-mini">FAST</span><span class="ed-expand-arrow" id="ed1-arrow">▶</span></div></div><div class="ed-details" id="ed1-details"><div class="ed-metrics"><div class="metric-tile"><div class="metric-value green">-48</div><div class="metric-label">RSSI dBm</div></div><div class="metric-tile"><div class="metric-value green">99.2</div><div class="metric-label">PDR %</div></div><div class="metric-tile"><div class="metric-value green">12</div><div class="metric-label">LATENCY ms</div></div><div class="metric-tile"><div class="metric-value cyan">2M</div><div class="metric-label">PHY</div></div><div class="metric-tile"><div class="metric-value cyan">0</div><div class="metric-label">TX dBm</div></div><div class="metric-tile"><div class="metric-value green">3.2</div><div class="metric-label">JITTER ms</div></div></div><div class="ed-profile-row"><div class="profile-badge profile-fast">▸ FAST · 2M · 15ms</div></div></div></div>
+  <div class="ed-card" id="ed2"><div class="ed-summary" onclick="toggleEd('ed2')"><div class="health-dot health-warn">!</div><div class="ed-summary-text"><div class="ed-name">FED_778899</div><div class="ed-health-label warn">WARNING — RSSI / Jitter</div></div><div class="ed-summary-right"><span class="ed-profile-mini profile-bal-mini">BAL</span><span class="ed-expand-arrow" id="ed2-arrow">▶</span></div></div><div class="ed-details" id="ed2-details"><div class="ed-metrics"><div class="metric-tile"><div class="metric-value amber">-72</div><div class="metric-label">RSSI dBm</div></div><div class="metric-tile"><div class="metric-value green">95.1</div><div class="metric-label">PDR %</div></div><div class="metric-tile"><div class="metric-value amber">28</div><div class="metric-label">LATENCY ms</div></div><div class="metric-tile"><div class="metric-value cyan">1M</div><div class="metric-label">PHY</div></div><div class="metric-tile"><div class="metric-value cyan">4</div><div class="metric-label">TX dBm</div></div><div class="metric-tile"><div class="metric-value amber">8.7</div><div class="metric-label">JITTER ms</div></div></div><div class="ed-profile-row"><div class="profile-badge profile-balanced">▸ BALANCED · 1M · 30ms</div></div></div></div>
+  <div class="ed-card disconnected" id="ed3"><div class="ed-summary"><div class="health-dot health-off">—</div><div class="ed-summary-text"><div class="ed-name">FED_AABB01</div><div class="ed-health-label off">OFFLINE</div></div></div></div>
+  <button class="refresh-btn">⟳ REFRESH</button>
+  <button class="eng-btn"><span>🔒</span> ENGINEERING MODE</button>
+  <div class="nav-hint">PAGE 2 of 3 · DASHBOARD</div>
+<script>
+function toggleEd(id){var d=document.getElementById(id+'-details'),a=document.getElementById(id+'-arrow');if(d&&a){d.classList.toggle('open');a.classList.toggle('open');}}
+function showTip(t,b){document.getElementById('tooltipTitle').textContent=t;document.getElementById('tooltipBody').innerHTML=b;document.getElementById('tooltipOverlay').classList.add('show');}
+function closeTooltip(){document.getElementById('tooltipOverlay').classList.remove('show');}
+</script>
+</body>
+</html>
