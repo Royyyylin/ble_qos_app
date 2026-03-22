@@ -73,29 +73,26 @@ class AdminTab extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // GW_CFG Editor (existing TODO — not implemented in this task)
+          // GW_CFG Editor
           Card(
             child: ListTile(
               leading: const Icon(Icons.settings, color: AppColors.primary),
               title: const Text('GW_CFG Editor'),
               subtitle: const Text('Edit gateway configuration'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: GW_CFG editor
-              },
+              onTap: () => _showGwCfgEditor(context, ref),
             ),
           ),
           const SizedBox(height: 8),
-          // PIN Management (existing TODO — not implemented in this task)
+          // PIN Management
           Card(
             child: ListTile(
               leading: const Icon(Icons.vpn_key, color: AppColors.secondary),
               title: const Text('PIN Management'),
               subtitle: const Text('Set engineer PIN'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: PIN management
-              },
+              enabled: isEngineer,
+              onTap: isEngineer ? () => _showPinSetDialog(context, ref) : null,
             ),
           ),
         ],
@@ -302,7 +299,9 @@ class AdminTab extends ConsumerWidget {
       },
     );
 
-    if (writeType == null || writeValue == null || !context.mounted) return;
+    if (writeType == null || writeValue == null || !context.mounted) {
+      return;
+    }
 
     // Confirmation for ROLE write (triggers reboot)
     if (writeType == 'ROLE') {
@@ -337,6 +336,190 @@ class AdminTab extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       _showSnackBar(context, '$writeType write failed: $e');
+    }
+  }
+
+  /// GW_CFG Editor: read current config → form → write back.
+  Future<void> _showGwCfgEditor(BuildContext context, WidgetRef ref) async {
+    final gatt = _gatt(ref);
+
+    // Read current GW_CFG
+    QosGwCfgV2? current;
+    try {
+      final data = await gatt.read(GattUuids.gwCfg);
+      if (data.length >= QosGwCfgV2.size) {
+        current = QosGwCfgV2.fromBytes(data);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      _showSnackBar(context, 'Failed to read GW_CFG: $e');
+      return;
+    }
+
+    if (!context.mounted) return;
+    current ??= const QosGwCfgV2(
+      ver: 2, tpMode: 1, log: 0, flags: 0,
+      creditAlarm: 1, creditCtrl: 1, creditRs485: 1, reserved: 0,
+    );
+
+    final tpModeCtrl = TextEditingController(text: '${current.tpMode}');
+    final logCtrl = TextEditingController(text: '${current.log}');
+    final flagsCtrl = TextEditingController(text: '${current.flags}');
+    final credACtrl = TextEditingController(text: '${current.creditAlarm}');
+    final credCCtrl = TextEditingController(text: '${current.creditCtrl}');
+    final credRCtrl = TextEditingController(text: '${current.creditRs485}');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('GW_CFG Editor'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _cfgField(tpModeCtrl, 'TP Mode', '0=STRESS, 1=PRODUCT'),
+              _cfgField(logCtrl, 'Phone Log', '0=off, 1=on'),
+              _cfgField(flagsCtrl, 'Flags', 'QOS_GWCFG_FLAG_DISABLE_* bits'),
+              _cfgField(credACtrl, 'Credit Alarm (pps)', '0=disabled'),
+              _cfgField(credCCtrl, 'Credit Ctrl (pps)', null),
+              _cfgField(credRCtrl, 'Credit RS485 (pps)', null),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Write'),
+          ),
+        ],
+      ),
+    );
+
+    final cfg = QosGwCfgV2(
+      ver: 2,
+      tpMode: int.tryParse(tpModeCtrl.text) ?? current.tpMode,
+      log: int.tryParse(logCtrl.text) ?? current.log,
+      flags: int.tryParse(flagsCtrl.text) ?? current.flags,
+      creditAlarm: int.tryParse(credACtrl.text) ?? current.creditAlarm,
+      creditCtrl: int.tryParse(credCCtrl.text) ?? current.creditCtrl,
+      creditRs485: int.tryParse(credRCtrl.text) ?? current.creditRs485,
+      reserved: 0,
+    );
+
+    for (final c in [tpModeCtrl, logCtrl, flagsCtrl, credACtrl, credCCtrl, credRCtrl]) {
+      c.dispose();
+    }
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await gatt.write(GattUuids.gwCfg, cfg.toBytes());
+      if (!context.mounted) return;
+      _showSnackBar(context, 'GW_CFG written successfully');
+    } catch (e) {
+      if (!context.mounted) return;
+      _showSnackBar(context, 'GW_CFG write failed: $e');
+    }
+  }
+
+  Widget _cfgField(TextEditingController ctrl, String label, String? hint) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextFormField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        keyboardType: TextInputType.number,
+      ),
+    );
+  }
+
+  /// ENG_PIN_SET: write new PIN to vendor UUID (requires ENGINEER mode).
+  Future<void> _showPinSetDialog(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(authSessionProvider);
+    if (session.currentRole != AuthRole.engineer) {
+      _showSnackBar(context, 'Engineer mode required to set PIN');
+      return;
+    }
+
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Set Engineer PIN'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: pinController,
+              decoration: const InputDecoration(
+                labelText: 'New PIN',
+                hintText: '4-16 digit PIN',
+                border: OutlineInputBorder(),
+              ),
+              maxLength: 16,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmController,
+              decoration: const InputDecoration(
+                labelText: 'Confirm PIN',
+                border: OutlineInputBorder(),
+              ),
+              maxLength: 16,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Set PIN'),
+          ),
+        ],
+      ),
+    );
+
+    final pin = pinController.text;
+    final confirm = confirmController.text;
+    pinController.dispose();
+    confirmController.dispose();
+
+    if (confirmed != true || !context.mounted) return;
+
+    if (pin.length < 4 || pin.length > 16) {
+      _showSnackBar(context, 'PIN must be 4-16 digits');
+      return;
+    }
+    if (pin != confirm) {
+      _showSnackBar(context, 'PINs do not match');
+      return;
+    }
+
+    try {
+      await _gatt(ref).write(GattUuids.engPinSet, pin.codeUnits);
+      if (!context.mounted) return;
+      _showSnackBar(context, 'Engineer PIN updated');
+    } catch (e) {
+      if (!context.mounted) return;
+      _showSnackBar(context, 'PIN set failed: $e');
     }
   }
 }
