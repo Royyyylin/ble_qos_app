@@ -96,8 +96,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
     try {
       // ConnectionOrchestrator: connect → handshake → navigate
+      // device.id is StableId — BleConnector resolves to MAC internally
       await connector.connect(device.id);
-      // ConnectionEstablished — navigate to DeviceScreen
+      // ConnectionEstablished — navigate with StableId in route
       if (mounted) context.push('/device/${device.id}');
     } catch (_) {
       // ConnectionFailed — show error, do NOT navigate
