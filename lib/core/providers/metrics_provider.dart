@@ -37,11 +37,11 @@ Stream<T> _gattNotifyStream<T>(
   // 1. Initial read — show data immediately even if device doesn't send notify
   try {
     final data = await gatt.read(charUuid);
-    // debugPrint('[METRICS] $charUuid read ${data.length} bytes');
+    debugPrint('[METRICS] $charUuid read ${data.length} bytes');
     final parsed = _tryParse(data, expectedSize, parser);
     if (parsed != null) yield parsed;
   } catch (e) {
-    // debugPrint('[METRICS] $charUuid initial read failed: $e');
+    debugPrint('[METRICS] $charUuid initial read failed: $e');
   }
 
   // 2. Subscribe to notifications for live updates
@@ -49,13 +49,13 @@ Stream<T> _gattNotifyStream<T>(
     final stream = await gatt.subscribe(charUuid);
     yield* stream
         .map((data) {
-          // debugPrint('[METRICS] $charUuid notify ${data.length} bytes');
+          debugPrint('[METRICS] $charUuid notify ${data.length} bytes');
           return data;
         })
         .where((data) => data.length >= expectedSize)
         .map((data) => parser(Uint8List.sublistView(data, 0, expectedSize)));
   } catch (e) {
-    // debugPrint('[METRICS] $charUuid subscribe failed: $e');
+    debugPrint('[METRICS] $charUuid subscribe failed: $e');
   }
 }
 
@@ -70,12 +70,12 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
   // Initial read (full 13-byte struct)
   try {
     final data = await gatt.read(GattUuids.status);
-    // debugPrint('[METRICS] STATUS read ${data.length} bytes');
+    debugPrint('[METRICS] STATUS read ${data.length} bytes');
     if (data.length >= QosStatus.indexedSize) {
       yield QosStatus.parse(data);
     }
   } catch (e) {
-    // debugPrint('[METRICS] STATUS initial read failed: $e');
+    debugPrint('[METRICS] STATUS initial read failed: $e');
   }
 
   // Subscribe to notify (may be 4-byte indexed or 13-byte full)
@@ -84,7 +84,7 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
     yield* stream
         .where((data) => data.length >= QosStatus.indexedSize)
         .map((data) {
-          // debugPrint('[METRICS] STATUS notify ${data.length} bytes');
+          debugPrint('[METRICS] STATUS notify ${data.length} bytes');
           final status = QosStatus.parse(data);
           // Feed indexed STATUS into EdStatusMap for Roster tab
           if (data.length < QosStatus.size) {
@@ -93,7 +93,7 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
           return status;
         });
   } catch (e) {
-    // debugPrint('[METRICS] STATUS subscribe failed: $e');
+    debugPrint('[METRICS] STATUS subscribe failed: $e');
   }
 });
 

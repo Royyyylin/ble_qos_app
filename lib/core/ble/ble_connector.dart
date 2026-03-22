@@ -133,8 +133,8 @@ class BleConnector {
         await char.write([PeerRole.phone]);
       }
       _setState(BleConnectionState.connected);
-    } catch (_) {
-      // Handshake failed — stay connected but peer is UNKNOWN (permissive)
+    } catch (e) {
+      debugPrint('[HANDSHAKE] PEER_ROLE write failed: $e');
       _setState(BleConnectionState.connected);
     }
   }
