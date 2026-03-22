@@ -82,7 +82,7 @@ class CmdV2Service {
     _resultSub?.cancel();
     for (final c in _pending.values) {
       if (!c.isCompleted) {
-        c.completeError(StateError('CmdV2Service disposed'));
+        c.complete(null); // graceful: return null instead of error on dispose
       }
     }
     _pending.clear();
