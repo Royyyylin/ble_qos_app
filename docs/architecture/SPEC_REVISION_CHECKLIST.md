@@ -10,7 +10,7 @@
 
 | 簡稱 | 路徑 | 位置 |
 |------|------|------|
-| **spec** | `docs/superpowers/specs/2026-03-19-ble-qos-mobile-app-design.md` | App repo |
+| **spec** | `docs/superpowers/specs/ble-qos-mobile-app-design/` (split into 5 sub-files + index) | 韌體 repo |
 | **role-pages** | `docs/current/app_role_pages.md` | 韌體 repo |
 | **ble_api** | `ble_api.yaml` | 韌體 repo |
 
@@ -80,7 +80,7 @@
 
 - **改 spec:130**（state management 章節）
   - [x] 明寫分層：BLE plugin wrapper（只負責 I/O）→ repository/session controller（狀態源）→ Riverpod providers（只暴露 state）
-  - [ ] 補 3 條規則：
+  - [x] 補 3 條規則：（已在 spec §2.3 State Management Architecture）
     - scan results 有 TTL / stale eviction
     - roster 先合併 scan + GW state，再給 UI
     - live telemetry 跟 session 生命週期走，斷線即 stale/clear
