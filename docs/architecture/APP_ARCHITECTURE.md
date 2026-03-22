@@ -38,13 +38,13 @@
 | # | 項目 | 狀態 | 文件 |
 |---|------|------|------|
 | 1 | CAP 格式：Additive migration（bitmask + CBOR） | ✅ | [foundations/01-capability-format.md](foundations/01-capability-format.md) |
-| 2 | 裝置 Identity：stable ID hierarchy，MAC 不進主模型 | ⏳ | [foundations/02-device-identity.md](foundations/02-device-identity.md) |
-| 3 | BLE Lifecycle：前景掃描 + 任務型連線 + 背景顯式恢復 | ⏳ | [foundations/03-ble-lifecycle.md](foundations/03-ble-lifecycle.md) |
+| 2 | 裝置 Identity：App-generated UUIDv4 + transport_id mapping | ✅ | [foundations/02-device-identity.md](foundations/02-device-identity.md) |
+| 3 | BLE Lifecycle：visible scan + task-scoped connection + 3x backoff | ✅ | [foundations/03-ble-lifecycle.md](foundations/03-ble-lifecycle.md) |
 | 4 | Timeout + Error：5 個 timeout + 7 類 error | ✅ | [foundations/04-timeout-error.md](foundations/04-timeout-error.md) |
 | 5 | Auth：session-based / GW_CFG Role-1 唯讀 / 5 分鐘 | ✅ | [foundations/05-auth-session.md](foundations/05-auth-session.md) |
-| 6 | 相容矩陣：CAPS_V2 → fallback CAP v1 → graceful degrade | ⏳ | [foundations/06-compat-matrix.md](foundations/06-compat-matrix.md) |
+| 6 | 相容矩陣：code-embedded + graceful degrade | ✅ | [foundations/06-compat-matrix.md](foundations/06-compat-matrix.md) |
 
-**執行順序**：#2 → #6 → #3（#1/#4/#5 已定案）
+**6 項基石全部定案**。下一步：spec 修訂 + Flutter 實作。
 
 ---
 
