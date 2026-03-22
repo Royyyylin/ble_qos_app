@@ -30,9 +30,12 @@ class DeviceScreen extends ConsumerWidget {
   });
 
   /// Build the common AppBar with ConnectionStateIndicator.
-  AppBar _buildAppBar(BleConnectionState bleState, {PreferredSizeWidget? bottom}) {
+  /// Shows device name instead of StableId (UUIDv4 is not user-friendly).
+  AppBar _buildAppBar(BleConnectionState bleState, WidgetRef ref, {PreferredSizeWidget? bottom}) {
+    final connDevice = ref.watch(connectedDeviceProvider);
+    final title = connDevice?.name ?? deviceId;
     return AppBar(
-      title: Text(deviceId),
+      title: Text(title),
       actions: [ConnectionStateIndicator(state: bleState)],
       bottom: bottom,
     );
@@ -47,7 +50,7 @@ class DeviceScreen extends ConsumerWidget {
     // Show loading while connecting/handshaking
     if (bleState == BleConnectionState.connecting || bleState == BleConnectionState.handshaking) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -55,7 +58,7 @@ class DeviceScreen extends ConsumerWidget {
     // Show error screen if connection lost or errored
     if (bleState == BleConnectionState.error || bleState == BleConnectionState.disconnected) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: ConnectionErrorScreen(
           message: bleState == BleConnectionState.error
               ? 'Connection to device failed'
@@ -103,7 +106,7 @@ class DeviceScreen extends ConsumerWidget {
 
     if (tabs.isEmpty) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: const Center(
           child: Text(
             'No compatible capabilities',
@@ -115,7 +118,7 @@ class DeviceScreen extends ConsumerWidget {
 
     if (tabs.length == 1) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: tabs.first.widget,
       );
     }
@@ -125,6 +128,7 @@ class DeviceScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: _buildAppBar(
           bleState,
+          ref,
           bottom: TabBar(
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
