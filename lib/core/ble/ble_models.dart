@@ -30,7 +30,9 @@ double emaRssi(int newRssi, double? previous, {double alpha = 0.3}) {
 }
 
 /// Discovered BLE device info from scan results.
+/// After identity migration: [id] = StableId (UUIDv4), [mac] = platform remoteId.
 class ScannedDevice {
+  /// StableId (UUIDv4) — app-generated stable identity, primary key.
   final String id;
   final String name;
   final int rssi;
@@ -39,6 +41,10 @@ class ScannedDevice {
   final DateTime lastSeen;
   final ManufacturerData? mfgData;
   final String? alias;
+
+  /// Platform BLE remote identifier (MAC on Android, UUID on iOS).
+  /// Used only for FlutterBluePlus operations.
+  final String? mac;
 
   const ScannedDevice({
     required this.id,
@@ -49,6 +55,7 @@ class ScannedDevice {
     required this.lastSeen,
     this.mfgData,
     this.alias,
+    this.mac,
   });
 
   /// Display name: alias if set, otherwise advertising name.
@@ -77,6 +84,7 @@ class ScannedDevice {
     DateTime? lastSeen,
     ManufacturerData? mfgData,
     String? alias,
+    String? mac,
   }) {
     return ScannedDevice(
       id: id,
@@ -87,6 +95,7 @@ class ScannedDevice {
       lastSeen: lastSeen ?? this.lastSeen,
       mfgData: mfgData ?? this.mfgData,
       alias: alias ?? this.alias,
+      mac: mac ?? this.mac,
     );
   }
 }
