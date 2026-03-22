@@ -5,13 +5,16 @@ import 'package:ble_qos_app/core/domain/health_threshold.dart';
 import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+import 'package:ble_qos_app/data/tooltip_content.dart';
+import 'package:ble_qos_app/widgets/info_tooltip.dart';
 
-/// Metric definition with health judgment.
+/// Metric definition with health judgment and tooltip.
 typedef _MetricDef = ({
   String label,
   String unit,
   String Function(QosStatus s) valueOf,
   HealthLevel Function(QosStatus s)? health,
+  ({String title, String body})? tooltip,
 });
 
 /// Dashboard tab — telemetry metrics with Pass/Fail color coding.
@@ -27,36 +30,42 @@ class DashboardTab extends ConsumerWidget {
       unit: 'dBm',
       valueOf: (s) => '${s.rssi}',
       health: (s) => HealthThreshold.rssi(s.rssi),
+      tooltip: TooltipContent.rssi,
     ),
     (
       label: 'PDR',
       unit: '%',
       valueOf: (s) => '${s.pdr}',
       health: (s) => HealthThreshold.pdr(s.pdr),
+      tooltip: TooltipContent.pdr,
     ),
     (
       label: 'Latency',
       unit: 'ms',
       valueOf: (s) => '${s.latency}',
       health: (s) => HealthThreshold.latency(s.latency),
+      tooltip: TooltipContent.latency,
     ),
     (
       label: 'Jitter',
       unit: 'ms',
       valueOf: (s) => '${s.jitter}',
       health: (s) => HealthThreshold.jitter(s.jitter),
+      tooltip: TooltipContent.jitter,
     ),
     (
       label: 'PHY',
       unit: '',
       valueOf: (s) => '${s.phy}',
-      health: null, // config value, no threshold
+      health: null,
+      tooltip: TooltipContent.phy,
     ),
     (
       label: 'TX Power',
       unit: 'dBm',
       valueOf: (s) => '${s.txPower}',
       health: null,
+      tooltip: TooltipContent.txPower,
     ),
   ];
 
@@ -101,6 +110,7 @@ class DashboardTab extends ConsumerWidget {
             health: status != null && m.health != null
                 ? m.health!(status)
                 : HealthLevel.unknown,
+            tooltip: m.tooltip,
           ),
       ],
     );
@@ -112,12 +122,14 @@ class _MetricCard extends StatelessWidget {
   final String value;
   final String unit;
   final HealthLevel health;
+  final ({String title, String body})? tooltip;
 
   const _MetricCard({
     required this.label,
     required this.value,
     required this.unit,
     required this.health,
+    this.tooltip,
   });
 
   @override
@@ -136,7 +148,15 @@ class _MetricCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
+              Row(
+                children: [
+                  Text(label, style: Theme.of(context).textTheme.bodySmall),
+                  if (tooltip != null) ...[
+                    const SizedBox(width: 4),
+                    InfoTooltip(title: tooltip!.title, body: tooltip!.body),
+                  ],
+                ],
+              ),
               const SizedBox(height: 4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
