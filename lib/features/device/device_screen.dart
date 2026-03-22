@@ -127,12 +127,30 @@ class DeviceScreen extends ConsumerWidget {
     }
 
     if (tabs.isEmpty) {
+      // Limited Mode: all caps incompatible or no caps at all
       return Scaffold(
         appBar: _buildAppBar(bleState, ref),
-        body: const Center(
-          child: Text(
-            'No compatible capabilities',
-            style: TextStyle(color: AppColors.textSecondary),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber, color: Colors.orange, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                result.isLimitedMode
+                    ? 'Limited Mode — device capabilities incompatible'
+                    : 'No compatible capabilities',
+                style: const TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              if (result.degraded.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ...result.degraded.map((d) => Text(
+                  d.message,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                )),
+              ],
+            ],
           ),
         ),
       );
