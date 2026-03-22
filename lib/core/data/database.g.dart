@@ -26,6 +26,15 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _macMeta = const VerificationMeta('mac');
+  @override
+  late final GeneratedColumn<String> mac = GeneratedColumn<String>(
+    'mac',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _roleMeta = const VerificationMeta('role');
   @override
   late final GeneratedColumn<String> role = GeneratedColumn<String>(
@@ -163,6 +172,7 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    mac,
     role,
     networkId,
     groupName,
@@ -198,6 +208,12 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
       context.handle(
         _nameMeta,
         name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('mac')) {
+      context.handle(
+        _macMeta,
+        mac.isAcceptableOrUnknown(data['mac']!, _macMeta),
       );
     }
     if (data.containsKey('role')) {
@@ -311,6 +327,10 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       ),
+      mac: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mac'],
+      ),
       role: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}role'],
@@ -373,8 +393,12 @@ class $DevicesTable extends Devices with TableInfo<$DevicesTable, Device> {
 }
 
 class Device extends DataClass implements Insertable<Device> {
+  /// StableId (UUIDv4) — primary key after identity migration.
   final String id;
   final String? name;
+
+  /// Platform MAC address — added in schema v2 for BLE operations.
+  final String? mac;
   final String role;
   final int? networkId;
   final String? groupName;
@@ -391,6 +415,7 @@ class Device extends DataClass implements Insertable<Device> {
   const Device({
     required this.id,
     this.name,
+    this.mac,
     required this.role,
     this.networkId,
     this.groupName,
@@ -411,6 +436,9 @@ class Device extends DataClass implements Insertable<Device> {
     map['id'] = Variable<String>(id);
     if (!nullToAbsent || name != null) {
       map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || mac != null) {
+      map['mac'] = Variable<String>(mac);
     }
     map['role'] = Variable<String>(role);
     if (!nullToAbsent || networkId != null) {
@@ -448,6 +476,7 @@ class Device extends DataClass implements Insertable<Device> {
     return DevicesCompanion(
       id: Value(id),
       name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      mac: mac == null && nullToAbsent ? const Value.absent() : Value(mac),
       role: Value(role),
       networkId: networkId == null && nullToAbsent
           ? const Value.absent()
@@ -482,6 +511,7 @@ class Device extends DataClass implements Insertable<Device> {
     return Device(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String?>(json['name']),
+      mac: serializer.fromJson<String?>(json['mac']),
       role: serializer.fromJson<String>(json['role']),
       networkId: serializer.fromJson<int?>(json['networkId']),
       groupName: serializer.fromJson<String?>(json['groupName']),
@@ -503,6 +533,7 @@ class Device extends DataClass implements Insertable<Device> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String?>(name),
+      'mac': serializer.toJson<String?>(mac),
       'role': serializer.toJson<String>(role),
       'networkId': serializer.toJson<int?>(networkId),
       'groupName': serializer.toJson<String?>(groupName),
@@ -522,6 +553,7 @@ class Device extends DataClass implements Insertable<Device> {
   Device copyWith({
     String? id,
     Value<String?> name = const Value.absent(),
+    Value<String?> mac = const Value.absent(),
     String? role,
     Value<int?> networkId = const Value.absent(),
     Value<String?> groupName = const Value.absent(),
@@ -538,6 +570,7 @@ class Device extends DataClass implements Insertable<Device> {
   }) => Device(
     id: id ?? this.id,
     name: name.present ? name.value : this.name,
+    mac: mac.present ? mac.value : this.mac,
     role: role ?? this.role,
     networkId: networkId.present ? networkId.value : this.networkId,
     groupName: groupName.present ? groupName.value : this.groupName,
@@ -556,6 +589,7 @@ class Device extends DataClass implements Insertable<Device> {
     return Device(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      mac: data.mac.present ? data.mac.value : this.mac,
       role: data.role.present ? data.role.value : this.role,
       networkId: data.networkId.present ? data.networkId.value : this.networkId,
       groupName: data.groupName.present ? data.groupName.value : this.groupName,
@@ -583,6 +617,7 @@ class Device extends DataClass implements Insertable<Device> {
     return (StringBuffer('Device(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('mac: $mac, ')
           ..write('role: $role, ')
           ..write('networkId: $networkId, ')
           ..write('groupName: $groupName, ')
@@ -604,6 +639,7 @@ class Device extends DataClass implements Insertable<Device> {
   int get hashCode => Object.hash(
     id,
     name,
+    mac,
     role,
     networkId,
     groupName,
@@ -624,6 +660,7 @@ class Device extends DataClass implements Insertable<Device> {
       (other is Device &&
           other.id == this.id &&
           other.name == this.name &&
+          other.mac == this.mac &&
           other.role == this.role &&
           other.networkId == this.networkId &&
           other.groupName == this.groupName &&
@@ -642,6 +679,7 @@ class Device extends DataClass implements Insertable<Device> {
 class DevicesCompanion extends UpdateCompanion<Device> {
   final Value<String> id;
   final Value<String?> name;
+  final Value<String?> mac;
   final Value<String> role;
   final Value<int?> networkId;
   final Value<String?> groupName;
@@ -659,6 +697,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
   const DevicesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.mac = const Value.absent(),
     this.role = const Value.absent(),
     this.networkId = const Value.absent(),
     this.groupName = const Value.absent(),
@@ -677,6 +716,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
   DevicesCompanion.insert({
     required String id,
     this.name = const Value.absent(),
+    this.mac = const Value.absent(),
     required String role,
     this.networkId = const Value.absent(),
     this.groupName = const Value.absent(),
@@ -700,6 +740,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
   static Insertable<Device> custom({
     Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? mac,
     Expression<String>? role,
     Expression<int>? networkId,
     Expression<String>? groupName,
@@ -718,6 +759,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (mac != null) 'mac': mac,
       if (role != null) 'role': role,
       if (networkId != null) 'network_id': networkId,
       if (groupName != null) 'group_name': groupName,
@@ -738,6 +780,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
   DevicesCompanion copyWith({
     Value<String>? id,
     Value<String?>? name,
+    Value<String?>? mac,
     Value<String>? role,
     Value<int?>? networkId,
     Value<String?>? groupName,
@@ -756,6 +799,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     return DevicesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      mac: mac ?? this.mac,
       role: role ?? this.role,
       networkId: networkId ?? this.networkId,
       groupName: groupName ?? this.groupName,
@@ -781,6 +825,9 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (mac.present) {
+      map['mac'] = Variable<String>(mac.value);
     }
     if (role.present) {
       map['role'] = Variable<String>(role.value);
@@ -832,6 +879,7 @@ class DevicesCompanion extends UpdateCompanion<Device> {
     return (StringBuffer('DevicesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('mac: $mac, ')
           ..write('role: $role, ')
           ..write('networkId: $networkId, ')
           ..write('groupName: $groupName, ')
@@ -845,6 +893,276 @@ class DevicesCompanion extends UpdateCompanion<Device> {
           ..write('configJson: $configJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DeviceIdentitiesTable extends DeviceIdentities
+    with TableInfo<$DeviceIdentitiesTable, DeviceIdentity> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DeviceIdentitiesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _stableIdMeta = const VerificationMeta(
+    'stableId',
+  );
+  @override
+  late final GeneratedColumn<String> stableId = GeneratedColumn<String>(
+    'stable_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _macMeta = const VerificationMeta('mac');
+  @override
+  late final GeneratedColumn<String> mac = GeneratedColumn<String>(
+    'mac',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [stableId, mac, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'device_identities';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DeviceIdentity> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('stable_id')) {
+      context.handle(
+        _stableIdMeta,
+        stableId.isAcceptableOrUnknown(data['stable_id']!, _stableIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stableIdMeta);
+    }
+    if (data.containsKey('mac')) {
+      context.handle(
+        _macMeta,
+        mac.isAcceptableOrUnknown(data['mac']!, _macMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_macMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {stableId};
+  @override
+  DeviceIdentity map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DeviceIdentity(
+      stableId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stable_id'],
+      )!,
+      mac: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mac'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DeviceIdentitiesTable createAlias(String alias) {
+    return $DeviceIdentitiesTable(attachedDatabase, alias);
+  }
+}
+
+class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
+  /// App-generated UUIDv4 stable identifier.
+  final String stableId;
+
+  /// Platform BLE remote identifier (MAC on Android, UUID on iOS).
+  final String mac;
+
+  /// Timestamp when identity was first assigned (epoch ms).
+  final int createdAt;
+  const DeviceIdentity({
+    required this.stableId,
+    required this.mac,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['stable_id'] = Variable<String>(stableId);
+    map['mac'] = Variable<String>(mac);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  DeviceIdentitiesCompanion toCompanion(bool nullToAbsent) {
+    return DeviceIdentitiesCompanion(
+      stableId: Value(stableId),
+      mac: Value(mac),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory DeviceIdentity.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DeviceIdentity(
+      stableId: serializer.fromJson<String>(json['stableId']),
+      mac: serializer.fromJson<String>(json['mac']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'stableId': serializer.toJson<String>(stableId),
+      'mac': serializer.toJson<String>(mac),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  DeviceIdentity copyWith({String? stableId, String? mac, int? createdAt}) =>
+      DeviceIdentity(
+        stableId: stableId ?? this.stableId,
+        mac: mac ?? this.mac,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  DeviceIdentity copyWithCompanion(DeviceIdentitiesCompanion data) {
+    return DeviceIdentity(
+      stableId: data.stableId.present ? data.stableId.value : this.stableId,
+      mac: data.mac.present ? data.mac.value : this.mac,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeviceIdentity(')
+          ..write('stableId: $stableId, ')
+          ..write('mac: $mac, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(stableId, mac, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DeviceIdentity &&
+          other.stableId == this.stableId &&
+          other.mac == this.mac &&
+          other.createdAt == this.createdAt);
+}
+
+class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
+  final Value<String> stableId;
+  final Value<String> mac;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const DeviceIdentitiesCompanion({
+    this.stableId = const Value.absent(),
+    this.mac = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DeviceIdentitiesCompanion.insert({
+    required String stableId,
+    required String mac,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : stableId = Value(stableId),
+       mac = Value(mac),
+       createdAt = Value(createdAt);
+  static Insertable<DeviceIdentity> custom({
+    Expression<String>? stableId,
+    Expression<String>? mac,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (stableId != null) 'stable_id': stableId,
+      if (mac != null) 'mac': mac,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DeviceIdentitiesCompanion copyWith({
+    Value<String>? stableId,
+    Value<String>? mac,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return DeviceIdentitiesCompanion(
+      stableId: stableId ?? this.stableId,
+      mac: mac ?? this.mac,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (stableId.present) {
+      map['stable_id'] = Variable<String>(stableId.value);
+    }
+    if (mac.present) {
+      map['mac'] = Variable<String>(mac.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeviceIdentitiesCompanion(')
+          ..write('stableId: $stableId, ')
+          ..write('mac: $mac, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2288,6 +2606,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $DevicesTable devices = $DevicesTable(this);
+  late final $DeviceIdentitiesTable deviceIdentities = $DeviceIdentitiesTable(
+    this,
+  );
   late final $AlertsTable alerts = $AlertsTable(this);
   late final $AuditLogTable auditLog = $AuditLogTable(this);
   late final $DeviceTelemetryTable deviceTelemetry = $DeviceTelemetryTable(
@@ -2299,6 +2620,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     devices,
+    deviceIdentities,
     alerts,
     auditLog,
     deviceTelemetry,
@@ -2309,6 +2631,7 @@ typedef $$DevicesTableCreateCompanionBuilder =
     DevicesCompanion Function({
       required String id,
       Value<String?> name,
+      Value<String?> mac,
       required String role,
       Value<int?> networkId,
       Value<String?> groupName,
@@ -2328,6 +2651,7 @@ typedef $$DevicesTableUpdateCompanionBuilder =
     DevicesCompanion Function({
       Value<String> id,
       Value<String?> name,
+      Value<String?> mac,
       Value<String> role,
       Value<int?> networkId,
       Value<String?> groupName,
@@ -2360,6 +2684,11 @@ class $$DevicesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mac => $composableBuilder(
+    column: $table.mac,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2448,6 +2777,11 @@ class $$DevicesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get mac => $composableBuilder(
+    column: $table.mac,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get role => $composableBuilder(
     column: $table.role,
     builder: (column) => ColumnOrderings(column),
@@ -2529,6 +2863,9 @@ class $$DevicesTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
+  GeneratedColumn<String> get mac =>
+      $composableBuilder(column: $table.mac, builder: (column) => column);
+
   GeneratedColumn<String> get role =>
       $composableBuilder(column: $table.role, builder: (column) => column);
 
@@ -2605,6 +2942,7 @@ class $$DevicesTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String?> name = const Value.absent(),
+                Value<String?> mac = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<int?> networkId = const Value.absent(),
                 Value<String?> groupName = const Value.absent(),
@@ -2622,6 +2960,7 @@ class $$DevicesTableTableManager
               }) => DevicesCompanion(
                 id: id,
                 name: name,
+                mac: mac,
                 role: role,
                 networkId: networkId,
                 groupName: groupName,
@@ -2641,6 +2980,7 @@ class $$DevicesTableTableManager
               ({
                 required String id,
                 Value<String?> name = const Value.absent(),
+                Value<String?> mac = const Value.absent(),
                 required String role,
                 Value<int?> networkId = const Value.absent(),
                 Value<String?> groupName = const Value.absent(),
@@ -2658,6 +2998,7 @@ class $$DevicesTableTableManager
               }) => DevicesCompanion.insert(
                 id: id,
                 name: name,
+                mac: mac,
                 role: role,
                 networkId: networkId,
                 groupName: groupName,
@@ -2693,6 +3034,174 @@ typedef $$DevicesTableProcessedTableManager =
       $$DevicesTableUpdateCompanionBuilder,
       (Device, BaseReferences<_$AppDatabase, $DevicesTable, Device>),
       Device,
+      PrefetchHooks Function()
+    >;
+typedef $$DeviceIdentitiesTableCreateCompanionBuilder =
+    DeviceIdentitiesCompanion Function({
+      required String stableId,
+      required String mac,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$DeviceIdentitiesTableUpdateCompanionBuilder =
+    DeviceIdentitiesCompanion Function({
+      Value<String> stableId,
+      Value<String> mac,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$DeviceIdentitiesTableFilterComposer
+    extends Composer<_$AppDatabase, $DeviceIdentitiesTable> {
+  $$DeviceIdentitiesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get stableId => $composableBuilder(
+    column: $table.stableId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mac => $composableBuilder(
+    column: $table.mac,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DeviceIdentitiesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DeviceIdentitiesTable> {
+  $$DeviceIdentitiesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get stableId => $composableBuilder(
+    column: $table.stableId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mac => $composableBuilder(
+    column: $table.mac,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DeviceIdentitiesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DeviceIdentitiesTable> {
+  $$DeviceIdentitiesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get stableId =>
+      $composableBuilder(column: $table.stableId, builder: (column) => column);
+
+  GeneratedColumn<String> get mac =>
+      $composableBuilder(column: $table.mac, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$DeviceIdentitiesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DeviceIdentitiesTable,
+          DeviceIdentity,
+          $$DeviceIdentitiesTableFilterComposer,
+          $$DeviceIdentitiesTableOrderingComposer,
+          $$DeviceIdentitiesTableAnnotationComposer,
+          $$DeviceIdentitiesTableCreateCompanionBuilder,
+          $$DeviceIdentitiesTableUpdateCompanionBuilder,
+          (
+            DeviceIdentity,
+            BaseReferences<
+              _$AppDatabase,
+              $DeviceIdentitiesTable,
+              DeviceIdentity
+            >,
+          ),
+          DeviceIdentity,
+          PrefetchHooks Function()
+        > {
+  $$DeviceIdentitiesTableTableManager(
+    _$AppDatabase db,
+    $DeviceIdentitiesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DeviceIdentitiesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DeviceIdentitiesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DeviceIdentitiesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> stableId = const Value.absent(),
+                Value<String> mac = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DeviceIdentitiesCompanion(
+                stableId: stableId,
+                mac: mac,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String stableId,
+                required String mac,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => DeviceIdentitiesCompanion.insert(
+                stableId: stableId,
+                mac: mac,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DeviceIdentitiesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DeviceIdentitiesTable,
+      DeviceIdentity,
+      $$DeviceIdentitiesTableFilterComposer,
+      $$DeviceIdentitiesTableOrderingComposer,
+      $$DeviceIdentitiesTableAnnotationComposer,
+      $$DeviceIdentitiesTableCreateCompanionBuilder,
+      $$DeviceIdentitiesTableUpdateCompanionBuilder,
+      (
+        DeviceIdentity,
+        BaseReferences<_$AppDatabase, $DeviceIdentitiesTable, DeviceIdentity>,
+      ),
+      DeviceIdentity,
       PrefetchHooks Function()
     >;
 typedef $$AlertsTableCreateCompanionBuilder =
@@ -3434,6 +3943,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$DevicesTableTableManager get devices =>
       $$DevicesTableTableManager(_db, _db.devices);
+  $$DeviceIdentitiesTableTableManager get deviceIdentities =>
+      $$DeviceIdentitiesTableTableManager(_db, _db.deviceIdentities);
   $$AlertsTableTableManager get alerts =>
       $$AlertsTableTableManager(_db, _db.alerts);
   $$AuditLogTableTableManager get auditLog =>

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
+import '../identity/device_identity_service.dart';
+import '../providers/identity_provider.dart';
 import 'backoff_config.dart';
 import 'ble_models.dart';
 import 'ble_reconnect.dart';
@@ -22,6 +24,11 @@ class BleConnector {
   final _stateController = StreamController<BleConnectionState>.broadcast();
   bool _intentionalDisconnect = false;
   BleReconnect? _reconnect;
+  DeviceIdentityService? _identityService;
+
+  /// Inject DeviceIdentityService for StableId→MAC resolution.
+  set identityService(DeviceIdentityService? service) =>
+      _identityService = service;
 
   Stream<BleConnectionState> get stateStream => _stateController.stream;
   BleConnectionState get state => _state;
@@ -40,14 +47,17 @@ class BleConnector {
   }
 
   /// Connect to device, discover services, and perform PEER_ROLE Handshake.
+  /// Accepts StableId — resolves to platform MAC via DeviceIdentityService.
   /// Completes only after Handshake succeeds or an error occurs.
   /// On failure, transitions to [BleConnectionState.error].
   Future<void> connect(String deviceId) async {
     _intentionalDisconnect = false;
     _reconnect?.cancel();
     _setState(BleConnectionState.connecting);
-    debugPrint('[BLE_CONN] connect($deviceId) started');
-    _device = BluetoothDevice.fromId(deviceId);
+    // Resolve StableId → MAC for FlutterBluePlus (falls back to raw deviceId if no service)
+    final mac = _identityService?.resolveToMac(deviceId) ?? deviceId;
+    debugPrint('[BLE_CONN] connect($deviceId) → mac=$mac');
+    _device = BluetoothDevice.fromId(mac);
 
     final completer = Completer<void>();
     bool hasConnected = false;
@@ -153,8 +163,14 @@ class BleConnector {
 }
 
 /// Riverpod provider for the connector.
+/// Injects DeviceIdentityService for StableId→MAC resolution.
 final bleConnectorProvider = Provider<BleConnector>((ref) {
   final connector = BleConnector();
+  try {
+    connector.identityService = ref.watch(identityServiceProvider);
+  } catch (_) {
+    // identityServiceProvider not yet initialized — connector falls back to raw deviceId
+  }
   ref.onDispose(() => connector.dispose());
   return connector;
 });
