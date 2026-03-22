@@ -188,25 +188,30 @@ final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
   return null;
 });
 
-/// Read DEVICE_INFO from GATT (uptime is computed on read, so refreshable).
-final deviceInfoProvider = FutureProvider.autoDispose<DeviceInfoGatt?>((ref) async {
+/// Read DEVICE_INFO from GATT, refreshing every 30s for uptime updates.
+final deviceInfoProvider = StreamProvider.autoDispose<DeviceInfoGatt?>((ref) async* {
   final device = ref.watch(connectedDeviceProvider);
-  if (device == null) return null;
+  if (device == null) return;
 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
 
-  try {
-    final data = await gatt.read(GattUuids.deviceInfo);
-    if (data.length >= DeviceInfoGatt.size) {
-      final info = DeviceInfoGatt.fromBytes(data);
-      debugPrint('[DEVICE] uptime=${info.uptimeLabel} resets=${info.resetCount} role=${info.roleLabel}');
-      return info;
+  // Read immediately, then every 30s
+  while (true) {
+    try {
+      final data = await gatt.read(GattUuids.deviceInfo);
+      if (data.length >= DeviceInfoGatt.size) {
+        final info = DeviceInfoGatt.fromBytes(data);
+        debugPrint('[DEVICE] uptime=${info.uptimeLabel} resets=${info.resetCount} role=${info.roleLabel}');
+        yield info;
+      }
+    } catch (e) {
+      debugPrint('[DEVICE] DEVICE_INFO read failed: $e');
+      return; // Stop polling if read fails (disconnected or unsupported)
     }
-  } catch (e) {
-    debugPrint('[DEVICE] DEVICE_INFO read failed: $e');
+    await Future.delayed(const Duration(seconds: 30));
+    if (connector.state != BleConnectionState.connected) return;
   }
-  return null;
 });
 
 /// GW_CFG read provider — read current gateway config.
