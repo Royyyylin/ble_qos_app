@@ -3,6 +3,7 @@
 > 本文件是 App 架構的 single source of truth。
 > 任何 AI agent 接手此專案，必須先讀本文件再動手。
 > 逐題決策細節見 [DECISIONS_60Q.md](DECISIONS_60Q.md)。
+> Spec 修訂追蹤見 [SPEC_REVISION_CHECKLIST.md](SPEC_REVISION_CHECKLIST.md)。
 > 最後更新：2026-03-22
 
 ---
