@@ -5,10 +5,14 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../gatt/gatt_uuids.dart';
+import '../identity/device_identity_service.dart';
+import '../providers/identity_provider.dart';
 import 'ble_models.dart';
 import 'manufacturer_data.dart';
 
-/// BLE scanner with EMA smoothing, stale/offline tracking, and duty cycle — spec §4.1.
+/// BLE scanner with EMA smoothing, stale/offline tracking, TTL eviction,
+/// and duty cycle — spec §4.1.
+/// After identity migration: _devices keyed by StableId, not MAC.
 class BleScanner {
   StreamSubscription<List<ScanResult>>? _scanSub;
   final _devices = <String, ScannedDevice>{};
@@ -16,6 +20,11 @@ class BleScanner {
   Timer? _statusTimer;
   Timer? _dutyCycleTimer;
   bool _scanning = false;
+  DeviceIdentityService? _identityService;
+
+  /// Inject DeviceIdentityService for MAC→StableId resolution.
+  set identityService(DeviceIdentityService? service) =>
+      _identityService = service;
 
   /// EMA alpha — spec §4.1: 0.3 * new + 0.7 * prev.
   static const double emaAlpha = 0.3;
@@ -61,13 +70,16 @@ class BleScanner {
   void _onScanResults(List<ScanResult> results) {
     final now = DateTime.now();
     for (final r in results) {
-      final id = r.device.remoteId.str;
+      final mac = r.device.remoteId.str;
+
+      // Resolve MAC → StableId via DeviceIdentityService (sync from cache)
+      final stableId = _identityService?.resolveOrAssignSync(mac) ?? mac;
 
       // Device name: prefer advName, fallback to platformName
       final advName = r.advertisementData.advName;
       final platformName = r.device.platformName;
       final name = advName.isNotEmpty ? advName : platformName;
-      final existing = _devices[id];
+      final existing = _devices[stableId];
 
       // Parse manufacturer data
       ManufacturerData? mfgData;
@@ -87,8 +99,8 @@ class BleScanner {
       final hasQosUuid = r.advertisementData.serviceUuids.contains(_qosServiceUuid);
       if (!hasQosUuid) continue;
 
-      _devices[id] = ScannedDevice(
-        id: id,
+      _devices[stableId] = ScannedDevice(
+        id: stableId,
         name: name,
         rssi: r.rssi,
         smoothedRssi: smoothed,
@@ -96,22 +108,35 @@ class BleScanner {
         lastSeen: now,
         mfgData: mfgData ?? existing?.mfgData,
         alias: existing?.alias,
+        mac: mac,
       );
     }
     _controller.add(_devices.values.toList());
   }
 
   /// Update device statuses based on lastSeen time.
+  /// Evicts devices that have been offline beyond offlineThreshold (TTL Eviction).
   void _updateDeviceStatuses() {
     bool changed = false;
     final now = DateTime.now();
+    final toEvict = <String>[];
+
     for (final entry in _devices.entries.toList()) {
       final newStatus = deviceStatusFromLastSeen(entry.value.lastSeen, now: now);
-      if (newStatus != entry.value.status) {
+      if (newStatus == DeviceStatus.offline) {
+        // TTL Eviction: remove offline devices from visible list
+        toEvict.add(entry.key);
+        changed = true;
+      } else if (newStatus != entry.value.status) {
         _devices[entry.key] = entry.value.copyWith(status: newStatus);
         changed = true;
       }
     }
+
+    for (final key in toEvict) {
+      _devices.remove(key);
+    }
+
     if (changed) {
       _controller.add(_devices.values.toList());
     }
@@ -162,8 +187,14 @@ class BleScanner {
 }
 
 /// Riverpod provider for the scanner.
+/// Injects DeviceIdentityService for MAC→StableId resolution.
 final bleScannerProvider = Provider<BleScanner>((ref) {
   final scanner = BleScanner();
+  try {
+    scanner.identityService = ref.watch(identityServiceProvider);
+  } catch (_) {
+    // identityServiceProvider not yet initialized — scanner works without it
+  }
   ref.onDispose(() => scanner.dispose());
   return scanner;
 });

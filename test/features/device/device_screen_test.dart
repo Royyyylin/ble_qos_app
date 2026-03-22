@@ -36,7 +36,7 @@ Override _deviceOverride(int role) {
 
 void main() {
   group('DeviceScreen', () {
-    testWidgets('renders with deviceId in app bar', (tester) async {
+    testWidgets('renders with device name in app bar instead of StableId', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -50,7 +50,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('AA:BB:CC'), findsOneWidget);
+      // AppBar shows device name ('TEST' from mock) instead of StableId
+      expect(find.text('TEST'), findsOneWidget);
     });
 
     testWidgets('shows Dashboard content for ED role (qos_monitor only)', (tester) async {

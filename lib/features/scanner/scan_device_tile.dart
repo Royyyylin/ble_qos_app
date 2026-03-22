@@ -77,12 +77,8 @@ class ScanDeviceTile extends StatelessWidget {
             : AppColors.error;
     return Text(
       '$rssi dBm',
-      style: TextStyle(
-        color: color,
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        fontFamily: AppColors.monoFontFamily,
-      ),
+      style:
+          TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
     );
   }
 }

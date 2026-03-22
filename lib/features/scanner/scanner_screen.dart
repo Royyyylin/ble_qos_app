@@ -99,18 +99,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
     // Clear previous ED status and set new connected device
     ref.read(edStatusMapProvider.notifier).clear();
-    ref.read(gwEdListProvider.notifier).clear();
     ref.read(connectedDeviceProvider.notifier).connect(device);
 
     try {
       // ConnectionOrchestrator: connect → handshake → navigate
+      // device.id is StableId — BleConnector resolves to MAC internally
       await connector.connect(device.id);
-      // If connected to GW, read ED_LIST for roster
-      if (device.mfgData?.isGateway == true) {
-        await refreshGwEdList(
-            connector, ref.read(gwEdListProvider.notifier));
-      }
-      // ConnectionEstablished — navigate to DeviceScreen
+      // ConnectionEstablished — navigate with StableId in route
       if (mounted) context.push('/device/${device.id}');
     } catch (_) {
       // ConnectionFailed — show error, do NOT navigate
@@ -158,9 +153,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: const Text('Fleet Overview'),
         actions: [
@@ -175,7 +168,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () => context.push('/settings'),
+            onPressed: () {
+              // context.go('/settings');
+            },
           ),
         ],
       ),
@@ -244,7 +239,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             ),
         ],
       ),
-    ),
     );
   }
 

@@ -8,10 +8,6 @@ import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/ed_roster_provider.dart';
 import 'package:ble_qos_app/features/device/roster/ed_roster_tab.dart';
 
-const _connectedEdListEntry = EdListEntry(
-  edIndex: 0, addrType: 1, address: 'ED:01', connected: true,
-);
-
 ScannedDevice _makeEd(String id, String name) => ScannedDevice(
       id: id,
       name: name,
@@ -45,13 +41,12 @@ void main() {
     });
 
     testWidgets(
-        'given_ed_connected_to_gw_when_rendered_then_shows_disconnect_button',
+        'given_eds_with_status_when_rendered_then_shows_online_badge',
         (tester) async {
       final roster = [
         EdRosterEntry(
           device: _makeEd('ED:01', 'ED-Alpha'),
           gwStatus: const QosStatus(edIndex: 0, zone: 0, profile: 1),
-          edListEntry: _connectedEdListEntry,
         ),
       ];
 
@@ -67,12 +62,13 @@ void main() {
       );
 
       expect(find.text('ED-Alpha'), findsOneWidget);
-      expect(find.text('Disconnect'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
       expect(find.textContaining('NEAR'), findsOneWidget);
+      expect(find.textContaining('BALANCED'), findsOneWidget);
     });
 
     testWidgets(
-        'given_ed_not_connected_when_rendered_then_shows_connect_button',
+        'given_ed_without_status_when_rendered_then_shows_offline',
         (tester) async {
       final roster = [
         EdRosterEntry(
@@ -93,18 +89,17 @@ void main() {
       );
 
       expect(find.text('ED-Beta'), findsOneWidget);
-      expect(find.text('Connect'), findsOneWidget);
+      expect(find.text('Offline'), findsOneWidget);
       expect(find.text('Not connected to GW'), findsOneWidget);
     });
 
     testWidgets(
-        'given_multiple_eds_when_rendered_then_shows_correct_buttons',
+        'given_multiple_eds_when_rendered_then_shows_all',
         (tester) async {
       final roster = [
         EdRosterEntry(
           device: _makeEd('ED:01', 'ED-Alpha'),
           gwStatus: const QosStatus(edIndex: 0, zone: 2, profile: 0),
-          edListEntry: _connectedEdListEntry,
         ),
         EdRosterEntry(
           device: _makeEd('ED:02', 'ED-Beta'),
@@ -125,8 +120,8 @@ void main() {
 
       expect(find.text('ED-Alpha'), findsOneWidget);
       expect(find.text('ED-Beta'), findsOneWidget);
-      expect(find.text('Disconnect'), findsOneWidget);
-      expect(find.text('Connect'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Offline'), findsOneWidget);
     });
   });
 }

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
+import 'package:ble_qos_app/core/capability/capability_reader.dart';
 import 'package:ble_qos_app/core/capability/capability_registry.dart';
+import 'package:ble_qos_app/core/capability/degradation_info.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
@@ -31,9 +33,12 @@ class DeviceScreen extends ConsumerWidget {
   });
 
   /// Build the common AppBar with ConnectionStateIndicator.
-  AppBar _buildAppBar(BleConnectionState bleState, {PreferredSizeWidget? bottom}) {
+  /// Shows device name instead of StableId (UUIDv4 is not user-friendly).
+  AppBar _buildAppBar(BleConnectionState bleState, WidgetRef ref, {PreferredSizeWidget? bottom}) {
+    final connDevice = ref.watch(connectedDeviceProvider);
+    final title = connDevice?.name ?? deviceId;
     return AppBar(
-      title: Text(deviceId),
+      title: Text(title),
       actions: [ConnectionStateIndicator(state: bleState)],
       bottom: bottom,
     );
@@ -48,7 +53,7 @@ class DeviceScreen extends ConsumerWidget {
     // Show loading while connecting/handshaking
     if (bleState == BleConnectionState.connecting || bleState == BleConnectionState.handshaking) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -56,7 +61,7 @@ class DeviceScreen extends ConsumerWidget {
     // Show error screen if connection lost or errored
     if (bleState == BleConnectionState.error || bleState == BleConnectionState.disconnected) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: ConnectionErrorScreen(
           message: bleState == BleConnectionState.error
               ? 'Connection to device failed'
@@ -74,17 +79,37 @@ class DeviceScreen extends ConsumerWidget {
     // Start PING keep-alive to prevent firmware phone_idle timeout
     ref.watch(pingKeepAliveProvider);
 
-    // Get capabilities from connected device role (fallback when no Capability Characteristic)
+    // Get capabilities via GATT read → role fallback negotiation order
     final connDevice = ref.watch(connectedDeviceProvider);
-    final capabilities = CapabilityRegistry.fallbackForRole(connDevice?.role ?? 0);
-    final result = CapabilityNegotiator.negotiate(capabilities);
+    final capResult = ref.watch(capabilityNegotiationProvider);
+    final result = capResult.valueOrNull ??
+        CapabilityNegotiator.negotiate(
+          CapabilityRegistry.fallbackForRole(connDevice?.role ?? 0),
+        );
     final tabs = <_TabEntry>[];
 
-    // Add capability-driven tabs
+    // Build degradation lookup for warning badges
+    final degradationMap = <String, DegradationInfo>{};
+    for (final d in result.degraded) {
+      degradationMap[d.tabLabel] = d;
+    }
+
+    // Add capability-driven tabs (including degraded ones with warning badges)
     for (final tabLabel in result.enabledTabs) {
       final widget = _widgetForTab(tabLabel);
       if (widget != null) {
         tabs.add(_TabEntry(label: tabLabel, widget: widget));
+      }
+    }
+    // Add degraded tabs with warning badge
+    for (final d in result.degraded) {
+      final widget = _widgetForTab(d.tabLabel);
+      if (widget != null) {
+        tabs.add(_TabEntry(
+          label: '⚠ ${d.tabLabel}',
+          widget: widget,
+          degradation: d,
+        ));
       }
     }
 
@@ -103,12 +128,30 @@ class DeviceScreen extends ConsumerWidget {
     }
 
     if (tabs.isEmpty) {
+      // Limited Mode: all caps incompatible or no caps at all
       return Scaffold(
-        appBar: _buildAppBar(bleState),
-        body: const Center(
-          child: Text(
-            'No compatible capabilities',
-            style: TextStyle(color: AppColors.textSecondary),
+        appBar: _buildAppBar(bleState, ref),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber, color: Colors.orange, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                result.isLimitedMode
+                    ? 'Limited Mode — device capabilities incompatible'
+                    : 'No compatible capabilities',
+                style: const TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              if (result.degraded.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ...result.degraded.map((d) => Text(
+                  d.message,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                )),
+              ],
+            ],
           ),
         ),
       );
@@ -116,7 +159,7 @@ class DeviceScreen extends ConsumerWidget {
 
     if (tabs.length == 1) {
       return Scaffold(
-        appBar: _buildAppBar(bleState),
+        appBar: _buildAppBar(bleState, ref),
         body: tabs.first.widget,
       );
     }
@@ -126,11 +169,19 @@ class DeviceScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: _buildAppBar(
           bleState,
+          ref,
           bottom: TabBar(
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textSecondary,
-            tabs: tabs.map((t) => Tab(text: t.label)).toList(),
+            tabs: tabs.map((t) => Tab(
+              child: t.degradation != null
+                  ? Tooltip(
+                      message: t.degradation!.message,
+                      child: Text(t.label),
+                    )
+                  : Text(t.label),
+            )).toList(),
           ),
         ),
         body: TabBarView(
@@ -155,8 +206,13 @@ class DeviceScreen extends ConsumerWidget {
 class _TabEntry {
   final String label;
   final Widget widget;
+  final DegradationInfo? degradation;
 
-  const _TabEntry({required this.label, required this.widget});
+  const _TabEntry({
+    required this.label,
+    required this.widget,
+    this.degradation,
+  });
 }
 
 /// Placeholder for capability tabs not yet implemented.

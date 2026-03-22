@@ -96,6 +96,32 @@ void main() {
       );
       expect(d.displayName, 'GW-1');
     });
+
+    test('given_scannedDevice_with_mac_when_accessed_then_returns_mac', () {
+      final d = ScannedDevice(
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'GW-Test',
+        rssi: -60,
+        smoothedRssi: -62.5,
+        status: DeviceStatus.online,
+        lastSeen: DateTime(2026, 1, 1),
+        mac: 'AA:BB:CC:DD:EE:FF',
+      );
+      expect(d.mac, 'AA:BB:CC:DD:EE:FF');
+      expect(d.id, '550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    test('given_scannedDevice_without_mac_when_accessed_then_mac_is_null', () {
+      final d = ScannedDevice(
+        id: 'some-id',
+        name: 'Test',
+        rssi: -60,
+        smoothedRssi: -60.0,
+        status: DeviceStatus.online,
+        lastSeen: DateTime(2026, 1, 1),
+      );
+      expect(d.mac, isNull);
+    });
   });
 
   group('BleConnectionState', () {
