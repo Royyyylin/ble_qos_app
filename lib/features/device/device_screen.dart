@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
+import 'package:ble_qos_app/core/capability/capability_reader.dart';
 import 'package:ble_qos_app/core/capability/capability_registry.dart';
+import 'package:ble_qos_app/core/capability/degradation_info.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
@@ -76,17 +78,37 @@ class DeviceScreen extends ConsumerWidget {
     // Start PING keep-alive to prevent firmware phone_idle timeout
     ref.watch(pingKeepAliveProvider);
 
-    // Get capabilities from connected device role (fallback when no Capability Characteristic)
+    // Get capabilities via GATT read → role fallback negotiation order
     final connDevice = ref.watch(connectedDeviceProvider);
-    final capabilities = CapabilityRegistry.fallbackForRole(connDevice?.role ?? 0);
-    final result = CapabilityNegotiator.negotiate(capabilities);
+    final capResult = ref.watch(capabilityNegotiationProvider);
+    final result = capResult.valueOrNull ??
+        CapabilityNegotiator.negotiate(
+          CapabilityRegistry.fallbackForRole(connDevice?.role ?? 0),
+        );
     final tabs = <_TabEntry>[];
 
-    // Add capability-driven tabs
+    // Build degradation lookup for warning badges
+    final degradationMap = <String, DegradationInfo>{};
+    for (final d in result.degraded) {
+      degradationMap[d.tabLabel] = d;
+    }
+
+    // Add capability-driven tabs (including degraded ones with warning badges)
     for (final tabLabel in result.enabledTabs) {
       final widget = _widgetForTab(tabLabel);
       if (widget != null) {
         tabs.add(_TabEntry(label: tabLabel, widget: widget));
+      }
+    }
+    // Add degraded tabs with warning badge
+    for (final d in result.degraded) {
+      final widget = _widgetForTab(d.tabLabel);
+      if (widget != null) {
+        tabs.add(_TabEntry(
+          label: '⚠ ${d.tabLabel}',
+          widget: widget,
+          degradation: d,
+        ));
       }
     }
 
@@ -133,7 +155,14 @@ class DeviceScreen extends ConsumerWidget {
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textSecondary,
-            tabs: tabs.map((t) => Tab(text: t.label)).toList(),
+            tabs: tabs.map((t) => Tab(
+              child: t.degradation != null
+                  ? Tooltip(
+                      message: t.degradation!.message,
+                      child: Text(t.label),
+                    )
+                  : Text(t.label),
+            )).toList(),
           ),
         ),
         body: TabBarView(
@@ -158,8 +187,13 @@ class DeviceScreen extends ConsumerWidget {
 class _TabEntry {
   final String label;
   final Widget widget;
+  final DegradationInfo? degradation;
 
-  const _TabEntry({required this.label, required this.widget});
+  const _TabEntry({
+    required this.label,
+    required this.widget,
+    this.degradation,
+  });
 }
 
 /// Placeholder for capability tabs not yet implemented.
