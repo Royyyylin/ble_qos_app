@@ -211,7 +211,7 @@ lib/
 | 1 | CAP 格式定案 | ✅ Additive migration（CAP v1 bitmask + CAPS_V2 CBOR） | — |
 | 2 | 裝置 stable ID 設計 | ⏳ 待設計 | 3 |
 | 3 | BLE lifecycle 重構 | ⏳ 待 2 | — |
-| 4 | Command timeout + error taxonomy | ⏳ 可先行 | — |
+| 4 | Command timeout + error taxonomy | ✅ 已定案（5 個 timeout + 7 類 error） | — |
 | 5 | Auth session-based 重構 | ✅ 決策完成（C2: GW_CFG Role-1 唯讀 / C3: 5 分鐘） | — |
 | 6 | App/FW 相容矩陣 | ⏳ 可開始（CAP 已定案） | — |
 
