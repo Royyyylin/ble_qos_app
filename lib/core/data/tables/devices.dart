@@ -1,8 +1,11 @@
 import 'package:drift/drift.dart';
 
 class Devices extends Table {
+  /// StableId (UUIDv4) — primary key after identity migration.
   TextColumn get id => text()();
   TextColumn get name => text().nullable()();
+  /// Platform MAC address — added in schema v2 for BLE operations.
+  TextColumn get mac => text().nullable()();
   TextColumn get role => text()();
   IntColumn get networkId => integer().nullable()();
   TextColumn get groupName => text().nullable()();
