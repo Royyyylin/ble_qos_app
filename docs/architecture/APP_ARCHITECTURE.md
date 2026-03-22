@@ -2,9 +2,11 @@
 
 > 本文件是 App 架構的 single source of truth。
 > 任何 AI agent 接手此專案，必須先讀本文件再動手。
-> 逐題決策細節見 [DECISIONS_60Q.md](DECISIONS_60Q.md)。
-> Spec 修訂追蹤見 [SPEC_REVISION_CHECKLIST.md](SPEC_REVISION_CHECKLIST.md)。
 > 最後更新：2026-03-22
+
+**相關文件**：
+- [DECISIONS_60Q.md](DECISIONS_60Q.md) — 60 題逐題決策
+- [SPEC_REVISION_CHECKLIST.md](SPEC_REVISION_CHECKLIST.md) — spec 修訂追蹤
 
 ---
 
@@ -31,158 +33,18 @@
 
 ## 六項架構基石
 
-以下 6 項是所有功能實作的前提，未定案前不應開始對應模組的 production code。
+每項的完整決策、大廠依據、待定細節見 `foundations/` 子資料夾。
 
-### 1. Capability 格式統一 ✅
+| # | 項目 | 狀態 | 文件 |
+|---|------|------|------|
+| 1 | CAP 格式：Additive migration（bitmask + CBOR） | ✅ | [foundations/01-capability-format.md](foundations/01-capability-format.md) |
+| 2 | 裝置 Identity：stable ID hierarchy，MAC 不進主模型 | ⏳ | [foundations/02-device-identity.md](foundations/02-device-identity.md) |
+| 3 | BLE Lifecycle：前景掃描 + 任務型連線 + 背景顯式恢復 | ⏳ | [foundations/03-ble-lifecycle.md](foundations/03-ble-lifecycle.md) |
+| 4 | Timeout + Error：5 個 timeout + 7 類 error | ✅ | [foundations/04-timeout-error.md](foundations/04-timeout-error.md) |
+| 5 | Auth：session-based / GW_CFG Role-1 唯讀 / 5 分鐘 | ✅ | [foundations/05-auth-session.md](foundations/05-auth-session.md) |
+| 6 | 相容矩陣：CAPS_V2 → fallback CAP v1 → graceful degrade | ⏳ | [foundations/06-compat-matrix.md](foundations/06-compat-matrix.md) |
 
-**決策**：Additive migration — 不改既有 UUID 語意
-
-```
-CAP v1 (6f8a9c19)     → 保留為 1-byte bitmask（backward-compatible fallback）
-CAPS_V2（新 UUID 待定）→ 新增 CBOR characteristic（正式 capability contract）
-```
-
-**App 連線讀取順序**：
-1. 讀 `FW_VERSION` / `DEVICE_INFO`
-2. 嘗試讀 `CAPS_V2`（CBOR: `[{id: "qos_monitor", version: 1}, ...]`）
-3. 成功 → versioned capability negotiation
-4. `CAPS_V2` 不存在 → fallback 到 `CAP v1` bitmask
-
-**理由**：
-- 符合 spec:722 additive-only 原則（不改既有 UUID 語意 = 不做 breaking change）
-- CAP v1 已在韌體合約成形（ble_api:537），改語意會斷掉舊韌體/工具/測試
-- 大廠做法一致（SmartThings capability versioning、Cisco Meraki API versioning、Azure DTDL v2/v3 並存）
-
-**影響範圍**：capability negotiation、tab 顯示、version compatibility、graceful degradation
-
-### 2. 裝置 Identity ⏳
-
-**問題**：iOS 不暴露 BLE MAC address，Android 也不應把 MAC 當 domain identity。
-
-**決策方向**（待細部設計）：
-
-Identity hierarchy：
-```
-device_identity     ← 產品主身份（DB 主鍵、路由 ID、跨 session 穩定）
-  provisioning_id   ← 次要穩定身份（安裝時寫入）
-    transport_id    ← 平台 BLE 連線身份（iOS: CBPeripheral.identifier / Android: MAC）
-      MAC/address   ← 僅 metadata，不進主模型
-```
-
-**大廠做法**：
-- Apple：`CBPeripheral.identifier`（系統 UUID）取回已知裝置；BLE random address 會變，不當長期身份
-- Cisco Meraki：inventory 以 serial / cloud ID / org / network assignment 管理；MAC 可查但非主鍵
-- SmartThings：device profile / capability id / component id，不用 transport address 當 domain model
-
-**待定細節**：
-- [ ] `device_identity` 怎麼生成？（App 端 UUID? 韌體端 serial? provisioning 寫入?）
-- [ ] 韌體是否需要新增 DEVICE_IDENTITY characteristic？或用現有 DEVICE_INFO?
-- [ ] scan result model 怎麼從 MAC-based 改成 identity-based?
-- [ ] GoRouter `/device/:id` 改用什麼 ID?
-- [ ] DB `devices` 表主鍵改成什麼?
-
-**影響範圍**：路由、DB schema、scan result model、所有 device reference
-
-### 3. BLE Lifecycle ⏳（待 #2 stable ID 定案）
-
-**決策方向**：visible scan + task-scoped connection + explicit background restore
-
-```
-Scanner 頁面（前景）→ filtered scan
-  │ 選擇裝置 → 停掃
-  ▼
-Device Session（前景）→ 單台 active 連線 + PING keepalive
-  │ 離開頁面 / App 背景化
-  ▼
-背景 → 停掃、斷線或顯式 OS 背景機制（不靠全局常駐掃描）
-  │ 回到前景
-  ▼
-恢復 → 重新檢查狀態 + 重建 session
-```
-
-**大廠做法**：
-- Apple：scan only when you need to → 找到就 stopScan → 背景靠 state restoration，不假設 app 永遠活著
-- Android：不鼓勵 periodic scans → 背景用 PendingIntent scan 或 companion APIs → 長時間連線用 foreground service
-
-**規則**：
-- **不做**：全 App 常駐掃描、2s/3s duty scan 撐全局
-- **掃描**：只在 Scanner 前景頁，選到裝置即停，離頁即停
-- **連線**：同一時間只連一台裝置
-- **背景**：必要時用 OS 原生背景 BLE 機制，不自己撐
-- **恢復**：回前景視為可能中斷，重新檢查狀態
-
-**待定細節**：
-- [ ] 背景恢復具體用哪個 OS 機制？（iOS state restoration / Android companion device?）
-- [ ] scan 停止後 scan results 保留多久？（TTL?）
-- [ ] session 斷線後重連 flow 的狀態機定義
-
-### 4. Command Timeout + Error Taxonomy
-
-**每一步都要 timeout**：
-| 步驟 | 建議 timeout |
-|------|-------------|
-| BLE connect | 10s |
-| Service discovery | 5s |
-| PEER_ROLE handshake | 3s |
-| Capability read | 3s |
-| CMD write + EVT response | 5s |
-
-**Error 分類**：
-| 類別 | 可重試 | 處理 |
-|------|--------|------|
-| `permission_denied` | 否 | 引導用戶開權限 |
-| `bluetooth_off` | 否 | 引導用戶開藍牙 |
-| `device_busy` | 是 | backoff retry |
-| `timeout` | 是 | 有限 retry（3-5 次） |
-| `out_of_range` | 是 | 提示靠近裝置 |
-| `gatt_failure` | 是 | 有限 retry |
-| `unexpected_disconnect` | 是 | exponential backoff 3-5 次後停，轉手動 Retry |
-
-### 5. 認證 Session-Based
-
-**決策**：
-- 角色提升是 session，不是永久 entitlement
-- App 被 kill → 重啟後回到「巡視人員」（Normal）
-- GW_CFG：Role-1 唯讀，Role-2 可寫（對齊韌體 `engineer_unlock` prerequisite，ble_api:248）
-  - 若 Role-1 有現場調整需求，另開 maintenance-safe config surface，不放開整個 GW_CFG
-- Engineer timeout = **5 分鐘**（對齊韌體 `QOS_ENG_UNLOCK_TIMEOUT_MS`，ble_api:304）
-  - UX guardrail：剩餘 60 秒顯示倒數警示 + Lock now 按鈕 + 危險操作二次確認
-- PIN 存 secure storage（iOS Keychain / Android EncryptedSharedPreferences），不存明文
-- 本地 PIN 驗證只算便利功能，不算安全邊界
-
-**原則**：先對齊 firmware authority，再談 app UX 細化
-
-### 6. App/FW 相容矩陣 ⏳（CAP 已定案，可開始）
-
-**Capability negotiation read order**：
-```
-連線後 →
-  1. 讀 FW_VERSION（6f8a9c1b）
-  2. 讀 DEVICE_INFO（6f8a9c1c）
-  3. 嘗試讀 CAPS_V2（新 UUID）
-     ├─ 存在 → versioned capability negotiation（CBOR: id + version）
-     └─ 不存在 → fallback 讀 CAP v1（6f8a9c19，bitmask）
-  4. 對照相容矩陣 → 決定顯示哪些功能
-  5. 不相容 → graceful degrade（灰色 + 提示「需要韌體 vX.Y」）
-```
-
-**大廠做法**：
-- Meraki：已發佈 major version 只做 backward-compatible 變更；breaking change 走 deprecation/sunset
-- SmartThings：capability = capabilityId + version；未知 capability 不顯示即可
-- Azure DTDL：v2/v3 混用逐步遷移
-
-**規則**：
-- App 不得假設韌體版本，必須動態讀取
-- 功能開關由 capability + version 推導，不靠 route 參數硬傳
-- `showControlTab` / `showAdminTab` 由 `role + capability + version` 三者共同決定
-- 未知 capability → graceful ignore（不 crash、不阻擋其他功能）
-- 不相容功能 → 只關閉該 feature，不拖垮整體
-
-**待定細節**：
-- [ ] CAPS_V2 的 UUID 分配
-- [ ] CBOR schema 定義（`[{id: string, version: int}, ...]`?）
-- [ ] 相容矩陣是寫死 App code 還是可遠端更新？
-- [ ] graceful degradation 的 UI 具體長什麼樣？
+**執行順序**：#2 → #6 → #3（#1/#4/#5 已定案）
 
 ---
 
@@ -192,18 +54,12 @@ Device Session（前景）→ 單台 active 連線 + PING keepalive
 lib/
 ├── main.dart                      # GoRouter + ProviderScope
 ├── core/
-│   ├── ble/                       # BLE transport（scanner, connector, reconnect）
-│   │   └── ble_adapter.dart       # 介面抽象（可 fake 測試）
+│   ├── ble/                       # BLE transport + BleAdapter 介面
 │   ├── gatt/                      # GATT 協議（從 ble_api.yaml 衍生）
-│   │   ├── gatt_contract.dart     # UUID + struct 定義（generated 或 hand-aligned）
-│   │   └── gatt_cmd_service.dart  # CMD 高層 API + timeout
 │   ├── auth/                      # Session-based 權限
 │   ├── capability/                # CAP 解析 + version compatibility + feature gate
 │   ├── device/                    # 裝置 identity（stable ID，非 MAC）
-│   ├── providers/                 # Riverpod state holders（非 singleton wrapper）
-│   │   ├── scan_provider.dart     # 生命週期：Scanner 前景頁
-│   │   ├── session_provider.dart  # 生命週期：active BLE connection
-│   │   └── telemetry_provider.dart # 生命週期：跟隨 session，斷線清 stale
+│   ├── providers/                 # Riverpod state holders
 │   ├── data/                      # Drift DB（persistent，migration additive-only）
 │   ├── domain/                    # 業務邏輯
 │   ├── error/                     # Error taxonomy + retry policy
@@ -213,71 +69,20 @@ lib/
 └── data/                          # 靜態資料
 ```
 
-### 狀態管理原則
+## 核心原則
 
-- BLE 層包一層 `BleAdapter` 介面，production 用 `flutter_blue_plus`，測試用 `FakeBleAdapter`
-- 不讓 singleton 成為核心狀態來源 → 改成 adapter/repository + Riverpod state holder
-- scan / session / telemetry 各自有明確生命週期：
-  - `scanResults`：有 TTL / eviction，離開 Scanner 頁即停止更新
-  - `session`：跟著 BLE connection 走
-  - `telemetry`：跟著 session 走，斷線即標記 stale
-- 依賴鏈維持單向：scan → roster → session → telemetry（不反向）
+**狀態管理**：BleAdapter 介面 → adapter/repository + Riverpod state holder → 依賴鏈單向（scan → session → telemetry → UI）
 
-### UI 原則
+**UI**：0 值不偽裝正常 → waiting/stale/unsupported 狀態；操作統一 loading → success/failure 回饋；notify 更新節流
 
-- 0 值 / null 不偽裝成正常資料 → 顯示 `waiting` / `stale` / `unsupported` / `requires dual-GW`
-- Connect / Disconnect / Apply 統一 loading → success / failure 回饋
-- notify 更新要節流（throttle），不是每包都重建整頁
-
-### 測試三層
-
-| 層級 | 範圍 | 工具 |
-|------|------|------|
-| Unit | parser, reducer, RBAC, timeout, error taxonomy | `flutter_test` + fake adapter |
-| Widget | 權限流程, 導航, 關鍵 UI 流程 | `flutter_test` + `WidgetTester` |
-| Integration | 真 BLE 裝置端到端 | `app-verify` skill + adb |
-
----
-
-## 追蹤清單
-
-| # | 項目 | 狀態 | 阻擋 |
-|---|------|------|------|
-| 1 | CAP 格式定案 | ✅ Additive migration（CAP v1 bitmask + CAPS_V2 CBOR） | — |
-| 2 | 裝置 stable ID 設計 | ⏳ 待設計 | 3 |
-| 3 | BLE lifecycle 重構 | ⏳ 待 2 | — |
-| 4 | Command timeout + error taxonomy | ✅ 已定案（5 個 timeout + 7 類 error） | — |
-| 5 | Auth session-based 重構 | ✅ 決策完成（C2: GW_CFG Role-1 唯讀 / C3: 5 分鐘） | — |
-| 6 | App/FW 相容矩陣 | ⏳ 可開始（CAP 已定案） | — |
-
-**建議執行順序**：
-```
-#4 (Timeout/Error) ── 最獨立，影響 lifecycle/UI/測試
-  ↓
-#2 (Stable ID) ── 卡 routing/DB/scan model/deep link
-  ↓
-#6 (相容矩陣) ── C1 已定，可寫 CAPS_V2/CAP v1/FW_VERSION 規則
-  ↓
-#3 (BLE lifecycle) ── 等 stable ID + timeout 先定，才穩
-```
-
-**每項最小定義**：
-- **#2**：定 canonical identity hierarchy：`device_identity > provisioning_id > transport_id`，MAC 不進主模型
-- **#4**：定 5 個 timeout：connect / discover / PEER_ROLE / capability read / CMD→EVT
-- **#6**：定 capability negotiation read order：`FW_VERSION → DEVICE_INFO → CAPS_V2 → fallback CAP v1`
-
-**注意事項**（定案後的護欄）：
-- C1：CAP v1 角色寫死為 bootstrap/fallback only，不讓它和 CAPS_V2 長期並列成兩套主邏輯
-- C2：現場 installer 需求另開 maintenance-safe config backlog，不回頭放寬 GW_CFG
-- C3：補明確 UX 規則 — 是否顯示倒數、剩 60 秒警示、Lock now 按鈕、哪些操作延長 session
+**測試**：unit（parser/reducer/auth）→ widget（權限/導航）→ integration/HIL（真 BLE）；flutter_blue_plus 包 adapter 用 fake
 
 ---
 
 ## 參考來源
 
-- Apple CoreBluetooth Best Practices
-- Apple Background Processing for BLE
-- Google Android BLE Permissions (Android 12+)
-- Google Android Architecture Recommendations
+- Apple CoreBluetooth Best Practices / Background Processing
+- Google Android BLE Permissions (12+) / Architecture Recommendations
 - Samsung SmartThings Device Profiles / Capabilities / Presentations
-- Cisco Meraki Dashboard Access / Data Availability / Firmware Release Process
+- Cisco Meraki API Versioning / Deprecation / Dashboard Access
+- Azure DTDL v2/v3 Model Versioning
