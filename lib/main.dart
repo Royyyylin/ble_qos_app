@@ -19,6 +19,7 @@ final _router = GoRouter(
       DeviceScreen(
         deviceId: state.pathParameters['id']!,
         showControlTab: true,
+        showAdminTab: true,
       )),
     GoRoute(path: '/provisioning/:id', builder: (_, state) =>
       ProvisioningScreen(deviceId: state.pathParameters['id']!)),
