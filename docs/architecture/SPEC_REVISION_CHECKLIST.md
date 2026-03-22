@@ -21,8 +21,8 @@
 | # | 衝突 | 文件 A | 文件 B | 決策 |
 |---|------|--------|--------|------|
 | C1 | CAP 格式 | spec:352 定成 CBOR capability list | ble_api:537 + gatt_services:36 是 `uint8_t` 1-byte bitmask | **待定案**（見 P0） |
-| C2 | GW_CFG 權限 | spec:180 給 Role-1 可寫 | role-pages:39 給 installer 唯讀 | **二選一** |
-| C3 | Engineer 逾時 | spec:162 定 5 分鐘 | role-pages:30 定 60 秒 | **二選一** |
+| C2 | GW_CFG 權限 | spec:180 給 Role-1 可寫 | role-pages:39 給 installer 唯讀 | ✅ **Role-1 唯讀，Role-2 可寫**（對齊 ble_api:248 engineer_unlock） |
+| C3 | Engineer 逾時 | spec:162 定 5 分鐘 | role-pages:30 定 60 秒 | ✅ **5 分鐘**（對齊 ble_api:304 + firmware src） |
 | C4 | BLE plugin | spec 已定 `flutter_blue_plus` | role-pages:192 推薦 `flutter_reactive_ble` | **統一為 flutter_blue_plus** |
 
 ---
@@ -85,8 +85,15 @@
 - **改 role-pages:26**（權限模型）
   - [ ] 對齊 spec 的 session-based 定義
 
-- **解決衝突 C3**：
-  - [ ] spec:162 的 5 分鐘 vs role-pages:30 的 60 秒 → 選一個，兩邊同步
+- **解決衝突 C2（GW_CFG 權限）**：
+  - [ ] spec:181 改成 GW_CFG: Role-1 read-only, Role-2 write（對齊 ble_api:248 engineer_unlock prerequisite）
+  - [ ] role-pages:39 已正確（installer 唯讀），不用改
+  - [ ] backlog：若 Role-1 有現場調整需求，另開 maintenance-safe config surface（子集 characteristic 或白名單欄位），不放開整個 GW_CFG
+
+- **解決衝突 C3（Engineer 逾時）**：
+  - [ ] role-pages:30 的 60 秒改成 5 分鐘（對齊 ble_api:304 + firmware QOS_ENG_UNLOCK_TIMEOUT_MS）
+  - [ ] spec:162 已是 5 分鐘，不用改
+  - [ ] UX guardrail：剩餘 60 秒顯示倒數警示 + Lock now 按鈕 + 危險操作二次確認
 
 ### Capability-driven UI
 

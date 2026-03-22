@@ -60,10 +60,11 @@
 
 | # | 問題 | 決策 |
 |---|------|------|
-| 25 | 三角色差異 | Role-0 只讀監控；Role-1 安裝/維護；Role-2 危險控制/診斷 |
+| 25 | 三角色差異 | Role-0 只讀監控；Role-1 安裝/維護（GW_CFG **唯讀**）；Role-2 危險控制/診斷（GW_CFG **可寫**） |
 | 26 | PIN 驗證方式 | Maintenance PIN 偏 App 本地；Engineer PIN 走韌體 ENG_UNLOCK |
 | 27 | PIN 儲存 | 不寫死 code；可配置 + secure storage |
 | 28 | Kill app 後角色 | 回到 Normal（較安全且合理的預設） |
+| 28b | Engineer 逾時 | **5 分鐘**（對齊韌體 ble_api:304 + src QOS_ENG_UNLOCK_TIMEOUT_MS）；UI 補 Lock now + 剩 60s 倒數警示 |
 
 ## G. Capability 系統
 

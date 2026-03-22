@@ -106,9 +106,14 @@ Device Session（前景）→ 單台 active 連線 + PING keepalive
 **決策**：
 - 角色提升是 session，不是永久 entitlement
 - App 被 kill → 重啟後回到「巡視人員」（Normal）
-- 工程師模式有 60 秒逾時自動降權（韌體端 `ENG_UNLOCK`）
+- GW_CFG：Role-1 唯讀，Role-2 可寫（對齊韌體 `engineer_unlock` prerequisite，ble_api:248）
+  - 若 Role-1 有現場調整需求，另開 maintenance-safe config surface，不放開整個 GW_CFG
+- Engineer timeout = **5 分鐘**（對齊韌體 `QOS_ENG_UNLOCK_TIMEOUT_MS`，ble_api:304）
+  - UX guardrail：剩餘 60 秒顯示倒數警示 + Lock now 按鈕 + 危險操作二次確認
 - PIN 存 secure storage（iOS Keychain / Android EncryptedSharedPreferences），不存明文
 - 本地 PIN 驗證只算便利功能，不算安全邊界
+
+**原則**：先對齊 firmware authority，再談 app UX 細化
 
 ### 6. App/FW 相容矩陣
 
