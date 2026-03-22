@@ -57,7 +57,7 @@ class CmdV2Service {
     } catch (e) {
       _pending.remove(txnId);
       debugPrint('[CMD_V2] error txn=$txnId: $e');
-      rethrow;
+      return null;
     }
   }
 

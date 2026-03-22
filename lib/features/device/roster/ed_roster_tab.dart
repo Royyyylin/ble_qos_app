@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -147,18 +148,26 @@ class EdRosterTab extends ConsumerWidget {
   }
 
   Future<void> _addToRoster(WidgetRef ref, String macAddress) async {
-    final cmdService = ref.read(cmdV2ServiceProvider);
-    final result = await cmdService.rosterAdd(macAddress);
-    if (result != null && result.isSuccess) {
-      ref.invalidate(rosterListProvider);
+    try {
+      final cmdService = ref.read(cmdV2ServiceProvider);
+      final result = await cmdService.rosterAdd(macAddress);
+      if (result != null && result.isSuccess) {
+        ref.invalidate(rosterListProvider);
+      }
+    } catch (e) {
+      debugPrint('[ROSTER] add failed: $e');
     }
   }
 
   Future<void> _removeFromRoster(WidgetRef ref, RosterEntry entry) async {
-    final cmdService = ref.read(cmdV2ServiceProvider);
-    final result = await cmdService.rosterRemove(entry.logicalSlot);
-    if (result != null && result.isSuccess) {
-      ref.invalidate(rosterListProvider);
+    try {
+      final cmdService = ref.read(cmdV2ServiceProvider);
+      final result = await cmdService.rosterRemove(entry.logicalSlot);
+      if (result != null && result.isSuccess) {
+        ref.invalidate(rosterListProvider);
+      }
+    } catch (e) {
+      debugPrint('[ROSTER] remove failed: $e');
     }
   }
 }
