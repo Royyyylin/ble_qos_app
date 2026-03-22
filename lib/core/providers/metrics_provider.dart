@@ -167,6 +167,64 @@ final cmdV2ServiceProvider = Provider.autoDispose<CmdV2Service>((ref) {
   return service;
 });
 
+/// GW_CFG read provider — read current gateway config.
+final gwCfgProvider = FutureProvider.autoDispose<QosGwCfgV2?>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return null;
+
+  // Re-read whenever gwCfgVersion changes
+  ref.watch(gwCfgVersionStreamProvider);
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.gwCfg);
+    if (data.length >= QosGwCfgV2.size) {
+      return QosGwCfgV2.fromBytes(data);
+    }
+  } catch (e) {
+    debugPrint('[GW_CFG] read failed: $e');
+  }
+  return null;
+});
+
+/// GW_CFG_VERSION notify stream — monotonic counter incremented on each GW_CFG write.
+/// Subscribe to detect external config changes and trigger gwCfgProvider refresh.
+final gwCfgVersionStreamProvider = StreamProvider.autoDispose<int>((ref) async* {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return;
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  // Initial read
+  try {
+    final data = await gatt.read(GattUuids.gwCfgVersion);
+    if (data.length >= 4) {
+      final bd = ByteData.sublistView(data);
+      yield bd.getUint32(0, Endian.little);
+    }
+  } catch (e) {
+    debugPrint('[GW_CFG_VER] initial read failed: $e');
+  }
+
+  // Subscribe for changes
+  try {
+    final stream = await gatt.subscribe(GattUuids.gwCfgVersion);
+    yield* stream
+        .where((data) => data.length >= 4)
+        .map((data) {
+          final bd = ByteData.sublistView(data);
+          final ver = bd.getUint32(0, Endian.little);
+          debugPrint('[GW_CFG_VER] version=$ver');
+          return ver;
+        });
+  } catch (e) {
+    debugPrint('[GW_CFG_VER] subscribe failed: $e');
+  }
+});
+
 /// PING keep-alive: writes PING characteristic every 20s to reset
 /// firmware phone_idle timer (30s timeout). Auto-disposes when
 /// DeviceScreen is no longer visible.
