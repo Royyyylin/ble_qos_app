@@ -148,7 +148,7 @@ class BleScanner {
       withServices: _qosServiceFilter,
       androidUsesFineLocation: true,
       continuousUpdates: true,
-      removeIfGone: const Duration(seconds: 15),
+      removeIfGone: offlineThreshold,
     );
   }
 

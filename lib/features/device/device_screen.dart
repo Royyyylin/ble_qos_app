@@ -6,7 +6,10 @@ import 'package:ble_qos_app/core/capability/capability_negotiator.dart';
 import 'package:ble_qos_app/core/capability/capability_reader.dart';
 import 'package:ble_qos_app/core/capability/capability_registry.dart';
 import 'package:ble_qos_app/core/capability/degradation_info.dart';
+import 'package:ble_qos_app/core/auth/auth_session.dart';
+import 'package:ble_qos_app/core/auth/permission_guard.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
+import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/widgets/connection_state_indicator.dart';
@@ -113,14 +116,15 @@ class DeviceScreen extends ConsumerWidget {
       }
     }
 
-    // Add permission-gated tabs (Control/Admin not from capabilities)
-    if (showControlTab) {
+    // Add permission-gated tabs based on auth role (spec §3.2)
+    final authRole = ref.watch(authSessionProvider).currentRole;
+    if (showControlTab && PermissionGuard.canWrite(authRole, GattAction.ctrl)) {
       tabs.add(_TabEntry(
         label: 'Control',
         widget: ControlTab(deviceId: deviceId),
       ));
     }
-    if (showAdminTab) {
+    if (showAdminTab && authRole == AuthRole.engineer) {
       tabs.add(_TabEntry(
         label: 'Admin',
         widget: AdminTab(deviceId: deviceId),

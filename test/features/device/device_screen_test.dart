@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ble_qos_app/core/auth/auth_session.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
 import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
+import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/features/device/device_screen.dart';
 
@@ -90,12 +92,15 @@ void main() {
       expect(find.text('HA'), findsOneWidget);
     });
 
-    testWidgets('shows Control and Admin tabs when flags set', (tester) async {
+    testWidgets('shows Control and Admin tabs when flags set and role elevated', (tester) async {
+      // Control requires maintenance+, Admin requires engineer
+      final elevatedSession = AuthSession()..elevate(AuthRole.engineer);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             _connectedOverride,
             _deviceOverride(ManufacturerData.roleGateway),
+            authSessionProvider.overrideWith((_) => elevatedSession),
           ],
           child: const MaterialApp(
             home: DeviceScreen(
