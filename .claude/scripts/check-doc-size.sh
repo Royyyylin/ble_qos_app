@@ -1,35 +1,41 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # PostToolUse hook: check if written MD file exceeds size limits
-# Usage: check-doc-size.sh <file_path>
+# Reads JSON from stdin (Claude Code hook protocol)
+set -euo pipefail
 
-FILE="$1"
-[[ ! -f "$FILE" ]] && exit 0
-[[ "$FILE" != *.md ]] && exit 0
+# Extract file path from hook input JSON
+FILE_PATH=$(jq -r '.tool_input.file_path // .tool_input.filePath // empty' 2>/dev/null)
 
-LINES=$(wc -l < "$FILE" | tr -d ' ')
-BASENAME=$(basename "$FILE")
-DIR=$(dirname "$FILE")
+# Skip if no file path or not a .md file
+[[ -z "${FILE_PATH}" ]] && exit 0
+[[ "${FILE_PATH}" != *.md ]] && exit 0
+[[ ! -f "${FILE_PATH}" ]] && exit 0
+
+LINES=$(wc -l < "${FILE_PATH}" | tr -d ' ')
+BASENAME=$(basename "${FILE_PATH}")
+DIR=$(dirname "${FILE_PATH}")
 
 # Determine limit based on path pattern
 LIMIT=0
 LABEL=""
 
-if [[ "$DIR" == *"plans/*/sections"* || "$DIR" == *"/sections" ]]; then
-  LIMIT=300; LABEL="plan section"
-elif [[ "$BASENAME" == "CLAUDE.md" ]]; then
-  LIMIT=60; LABEL="CLAUDE.md"
-elif [[ "$BASENAME" == "CURRENT.md" ]]; then
-  LIMIT=60; LABEL="CURRENT.md"
-elif [[ "$DIR" == *"handoffs"* ]]; then
-  LIMIT=100; LABEL="handoff"
-elif [[ "$DIR" == *"foundations"* ]]; then
-  LIMIT=150; LABEL="architecture foundation"
-elif [[ "$BASENAME" == "APP_ARCHITECTURE.md" || "$BASENAME" == "index.md" ]]; then
-  LIMIT=150; LABEL="index/hub"
-fi
+case "${DIR}" in
+  *sections*)       LIMIT=300; LABEL="plan section" ;;
+  *foundations*)     LIMIT=150; LABEL="architecture foundation" ;;
+  *handoffs*)        LIMIT=100; LABEL="handoff" ;;
+esac
 
-if [[ "$LIMIT" -gt 0 && "$LINES" -gt "$LIMIT" ]]; then
-  echo "⚠️ ${LABEL} exceeds ${LIMIT}-line limit: ${FILE} is ${LINES} lines. Split into sub-files."
+case "${BASENAME}" in
+  CLAUDE.md)              LIMIT=60;  LABEL="CLAUDE.md" ;;
+  CURRENT.md)             LIMIT=60;  LABEL="CURRENT.md" ;;
+  APP_ARCHITECTURE.md)    LIMIT=150; LABEL="index/hub" ;;
+  index.md)               LIMIT=150; LABEL="index/hub" ;;
+esac
+
+if [[ "${LIMIT}" -gt 0 && "${LINES}" -gt "${LIMIT}" ]]; then
+  cat <<EOF
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"⚠️ ${LABEL} exceeds ${LIMIT}-line limit: ${FILE_PATH} is ${LINES} lines. Split into sub-files per .claude/rules/doc-size-limit.md."}}
+EOF
   exit 1
 fi
 

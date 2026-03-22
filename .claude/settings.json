@@ -2,8 +2,15 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write",
-        "command": "bash .claude/scripts/check-doc-size.sh $TOOL_INPUT_FILE_PATH"
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/scripts/check-doc-size.sh",
+            "timeout": 5,
+            "statusMessage": "Checking doc size limits..."
+          }
+        ]
       }
     ]
   }
