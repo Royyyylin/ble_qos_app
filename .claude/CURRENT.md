@@ -12,16 +12,14 @@
 - [x] Device identity migration（UUIDv4 stable ID）
 - [x] BLE scan lifecycle + compat matrix
 - [x] GW Roster ED 選擇 + 8 bug fix
-- [x] Spec 修訂 39/49 complete
+- [x] Spec 修訂 40/49 complete
 - [x] 實機驗證 PASS（Scanner + Device Screen）
 - [x] 全域 doc size hook（300 行上限）
 
 ## 下一步
 
-1. 拆 976 行 spec 文件（超過 300 行上限）
-2. Roster 端到端測試（GW 連線 + CMD 0x03/0x04）
-3. 韌體 repo push spec 修訂
-4. Spec 修訂剩 10 個 checkbox
+1. Roster 端到端測試（GW 連線 + CMD 0x03/0x04）
+2. Spec 修訂剩 9 個 checkbox（多為韌體 backlog + App Store compliance）
 
 ## Backlog
 
