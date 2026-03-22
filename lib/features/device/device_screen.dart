@@ -40,8 +40,21 @@ class DeviceScreen extends ConsumerWidget {
   AppBar _buildAppBar(BleConnectionState bleState, WidgetRef ref, {PreferredSizeWidget? bottom}) {
     final connDevice = ref.watch(connectedDeviceProvider);
     final title = connDevice?.name ?? deviceId;
+    final fwVer = ref.watch(fwVersionProvider).valueOrNull;
+    final devInfo = ref.watch(deviceInfoProvider).valueOrNull;
+    final subtitle = [
+      if (fwVer != null) 'FW ${fwVer.label}',
+      if (devInfo != null) devInfo.uptimeLabel,
+    ].join(' · ');
     return AppBar(
-      title: Text(title),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title),
+          if (subtitle.isNotEmpty)
+            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        ],
+      ),
       actions: [ConnectionStateIndicator(state: bleState)],
       bottom: bottom,
     );

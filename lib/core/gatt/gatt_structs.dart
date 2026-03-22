@@ -2,7 +2,87 @@ import 'dart:typed_data';
 
 /// Binary codecs for firmware GATT structs.
 /// Sizes protected by BUILD_ASSERT in firmware — must match exactly.
-/// Source of truth: src/qos_service.h
+/// Source of truth: src/qos_service.h + ble_api.yaml
+
+/// fw_version_wire — 6 bytes, FW_VERSION characteristic (6f8a9c1b).
+class FwVersion {
+  final int major;
+  final int minor;
+  final int patch;
+  final int buildNum;
+
+  const FwVersion({
+    required this.major,
+    required this.minor,
+    required this.patch,
+    required this.buildNum,
+  });
+
+  static const int size = 6;
+
+  String get label => '$major.$minor.$patch+$buildNum';
+
+  factory FwVersion.fromBytes(Uint8List data) {
+    if (data.length < size) {
+      throw ArgumentError('FwVersion: expected >= $size bytes, got ${data.length}');
+    }
+    final bd = ByteData.sublistView(data);
+    return FwVersion(
+      major: bd.getUint8(0),
+      minor: bd.getUint8(1),
+      patch: bd.getUint8(2),
+      buildNum: bd.getUint16(3, Endian.little),
+    );
+  }
+}
+
+/// device_info_wire — 8 bytes, DEVICE_INFO characteristic (6f8a9c1c).
+class DeviceInfoGatt {
+  final int uptimeSeconds;
+  final int resetCount;
+  final int hwRev;
+  final int role;
+
+  const DeviceInfoGatt({
+    required this.uptimeSeconds,
+    required this.resetCount,
+    required this.hwRev,
+    required this.role,
+  });
+
+  static const int size = 8;
+
+  String get uptimeLabel {
+    final h = uptimeSeconds ~/ 3600;
+    final m = (uptimeSeconds % 3600) ~/ 60;
+    final s = uptimeSeconds % 60;
+    if (h > 0) return '${h}h ${m}m';
+    if (m > 0) return '${m}m ${s}s';
+    return '${s}s';
+  }
+
+  String get roleLabel => switch (role) {
+    0 => 'Unprovisioned',
+    1 => 'End Device',
+    2 => 'Gateway',
+    3 => 'Repeater',
+    4 => 'CC',
+    _ => 'Unknown ($role)',
+  };
+
+  factory DeviceInfoGatt.fromBytes(Uint8List data) {
+    if (data.length < size) {
+      throw ArgumentError('DeviceInfoGatt: expected >= $size bytes, got ${data.length}');
+    }
+    final bd = ByteData.sublistView(data);
+    return DeviceInfoGatt(
+      uptimeSeconds: bd.getUint32(0, Endian.little),
+      resetCount: bd.getUint16(4, Endian.little),
+      hwRev: bd.getUint8(6),
+      role: bd.getUint8(7),
+    );
+  }
+}
 
 /// qos_status — 13 bytes full / 4 bytes indexed, STATUS characteristic (0x2A1D)
 ///

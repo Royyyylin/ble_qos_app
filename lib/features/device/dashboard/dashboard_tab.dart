@@ -75,7 +75,7 @@ class DashboardTab extends ConsumerWidget {
     (
       label: 'Throughput',
       unit: 'B/s',
-      valueOf: (_, m) => m == null ? '--' : '${m.tpBps}',
+      valueOf: (s, m) => m == null || _isNoData(s) ? '--' : (m.tpBps == 0 ? '--' : '${m.tpBps}'),
       health: null,
       tooltip: TooltipContent.throughput,
     ),

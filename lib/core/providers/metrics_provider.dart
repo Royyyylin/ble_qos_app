@@ -167,6 +167,48 @@ final cmdV2ServiceProvider = Provider.autoDispose<CmdV2Service>((ref) {
   return service;
 });
 
+/// Read FW_VERSION from GATT (one-shot, static).
+final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return null;
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.fwVersion);
+    if (data.length >= FwVersion.size) {
+      final ver = FwVersion.fromBytes(data);
+      debugPrint('[DEVICE] FW_VERSION: ${ver.label}');
+      return ver;
+    }
+  } catch (e) {
+    debugPrint('[DEVICE] FW_VERSION read failed: $e');
+  }
+  return null;
+});
+
+/// Read DEVICE_INFO from GATT (uptime is computed on read, so refreshable).
+final deviceInfoProvider = FutureProvider.autoDispose<DeviceInfoGatt?>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return null;
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.deviceInfo);
+    if (data.length >= DeviceInfoGatt.size) {
+      final info = DeviceInfoGatt.fromBytes(data);
+      debugPrint('[DEVICE] uptime=${info.uptimeLabel} resets=${info.resetCount} role=${info.roleLabel}');
+      return info;
+    }
+  } catch (e) {
+    debugPrint('[DEVICE] DEVICE_INFO read failed: $e');
+  }
+  return null;
+});
+
 /// GW_CFG read provider — read current gateway config.
 final gwCfgProvider = FutureProvider.autoDispose<QosGwCfgV2?>((ref) async {
   final device = ref.watch(connectedDeviceProvider);

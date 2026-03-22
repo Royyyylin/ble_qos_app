@@ -51,7 +51,12 @@ final edRosterProvider = Provider<List<EdRosterEntry>>((ref) {
           d.networkId == networkId)
       .toList();
 
-  // Match scan order to ed_index (best-effort, Phase 2 firmware will expose roster with IDs)
+  // Sort by RSSI (strongest first) for stable ordering
+  eds.sort((a, b) => b.smoothedRssi.compareTo(a.smoothedRssi));
+
+  // Match ED list to indexed STATUS by position.
+  // Indexed STATUS ed_index corresponds to firmware ED slot order.
+  // Until ROSTER_LIST is available (PR #65), best-effort match by index.
   return eds.asMap().entries.map((entry) {
     final idx = entry.key;
     final device = entry.value;
