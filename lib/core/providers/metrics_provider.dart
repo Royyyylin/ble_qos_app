@@ -71,14 +71,17 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
 
+  // Keep last full status so 4-byte indexed notifies don't erase rssi/pdr/lat/jit.
+  QosStatus lastFull = const QosStatus();
+
   // Initial read (full 13-byte struct)
   try {
     final data = await gatt.read(GattUuids.status);
     debugPrint('[METRICS] STATUS read ${data.length} bytes: ${data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
     if (data.length >= QosStatus.indexedSize) {
-      final status = QosStatus.parse(data);
-      debugPrint('[METRICS] STATUS parsed: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} jit=${status.jitter} zone=${status.zone} phy=${status.phy} tx=${status.txPower}');
-      yield status;
+      lastFull = QosStatus.parse(data);
+      debugPrint('[METRICS] STATUS parsed: rssi=${lastFull.rssi} pdr=${lastFull.pdr} lat=${lastFull.latency} jit=${lastFull.jitter} zone=${lastFull.zone} phy=${lastFull.phy} tx=${lastFull.txPower}');
+      yield lastFull;
     }
   } catch (e) {
     debugPrint('[METRICS] STATUS initial read failed: $e');
@@ -89,16 +92,39 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
     debugPrint('[METRICS] STATUS subscribing...');
     final stream = await gatt.subscribe(GattUuids.status);
     debugPrint('[METRICS] STATUS subscribed OK');
+    DateTime lastYield = DateTime.now();
     yield* stream
         .where((data) => data.length >= QosStatus.indexedSize)
         .map((data) {
-          debugPrint('[METRICS] STATUS notify ${data.length} bytes');
-          final status = QosStatus.parse(data);
-          // Feed indexed STATUS into EdStatusMap for Roster tab
-          if (data.length < QosStatus.size) {
-            ref.read(edStatusMapProvider.notifier).update(status);
+          if (data.length >= QosStatus.size) {
+            // Full 13-byte notify — update everything
+            lastFull = QosStatus.parse(data);
+            return lastFull;
+          } else {
+            // 4-byte indexed notify — merge with last full (keep rssi/pdr/lat/jit)
+            final indexed = QosStatus.fromIndexedBytes(data);
+            ref.read(edStatusMapProvider.notifier).update(indexed);
+            // Merge: use indexed zone/profile/phy/tx, keep full rssi/pdr/lat/jit
+            lastFull = QosStatus(
+              rssi: lastFull.rssi,
+              pdr: lastFull.pdr,
+              latency: lastFull.latency,
+              jitter: lastFull.jitter,
+              zone: indexed.zone,
+              profile: indexed.profile,
+              phy: indexed.phy,
+              txPower: indexed.txPower,
+              interval: indexed.interval,
+              edIndex: indexed.edIndex,
+            );
+            return lastFull;
           }
-          return status;
+        })
+        .where((_) {
+          final now = DateTime.now();
+          if (now.difference(lastYield).inMilliseconds < 1000) return false;
+          lastYield = now;
+          return true;
         });
   } catch (e) {
     debugPrint('[METRICS] STATUS subscribe failed: $e');
