@@ -49,19 +49,14 @@ final edRosterProvider = Provider<List<EdRosterEntry>>((ref) {
   final rosterAsync = ref.watch(rosterListProvider);
   final rosterEntries = rosterAsync.valueOrNull ?? const [];
 
-  // Build MAC → RosterEntry lookup (uppercase for matching)
+  // Build MAC-keyed lookups for roster entry and STATUS index (single pass)
   final rosterByMac = <String, RosterEntry>{};
-  for (final r in rosterEntries) {
-    if (!r.isEmpty) {
-      rosterByMac[r.address.toUpperCase()] = r;
-    }
-  }
-
-  // Build MAC → ed_index lookup for STATUS matching
   final rosterIndexByMac = <String, int>{};
   for (final r in rosterEntries) {
     if (!r.isEmpty) {
-      rosterIndexByMac[r.address.toUpperCase()] = r.logicalSlot;
+      final mac = r.address.toUpperCase();
+      rosterByMac[mac] = r;
+      rosterIndexByMac[mac] = r.logicalSlot;
     }
   }
 
@@ -83,18 +78,9 @@ final edRosterProvider = Provider<List<EdRosterEntry>>((ref) {
     return mac == null || !rosterByMac.containsKey(mac);
   }).toList();
 
-  return discoveredEds.map((device) {
-    // Match by MAC address to firmware roster (for EDs without MAC that slip through)
-    final mac = device.mac?.toUpperCase();
-    final rosterSlot = mac != null ? rosterByMac[mac] : null;
-    // Match STATUS by roster slot index (more accurate than scan order)
-    final slotIdx = mac != null ? rosterIndexByMac[mac] : null;
-    final gwStatus = slotIdx != null ? edStatusMap[slotIdx] : null;
-
-    return EdRosterEntry(
-      device: device,
-      gwStatus: gwStatus,
-      rosterSlot: rosterSlot,
-    );
-  }).toList();
+  // Discovered EDs are NOT in firmware roster (filtered above),
+  // so rosterSlot and gwStatus are always null for these entries.
+  return discoveredEds.map((device) => EdRosterEntry(
+    device: device,
+  )).toList();
 });

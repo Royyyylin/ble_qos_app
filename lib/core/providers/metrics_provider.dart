@@ -63,11 +63,6 @@ Stream<T> _gattNotifyStream<T>(
   }
 }
 
-// RED/BLUE REVIEW — Task 1:
-// Blue: Replace statusStreamProvider from notify-only to 2s GATT-read polling
-//       for full 13-byte STATUS (rssi/pdr/lat/jit). Only modifies metrics_provider.dart.
-// Red: No issues found. Polling exits on read failure (disconnected). Tests use overrides.
-
 /// STATUS polling interval — firmware sends only 4-byte indexed notify
 /// (zone/profile/phy/tx). Full 13-byte STATUS (rssi/pdr/lat/jit) requires GATT read.
 const _statusPollInterval = Duration(seconds: 2);

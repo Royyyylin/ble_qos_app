@@ -5,6 +5,9 @@ import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
+/// User-facing message when device has no HA pair configured.
+const _noHaPairMessage = 'No HA pair configured';
+
 /// HA status tab — subscribes to HA_HB notify, parses 21-byte heartbeat,
 /// displays HA role, epoch, heartbeat count, failover event (spec §10).
 class HaTab extends ConsumerWidget {
@@ -48,7 +51,7 @@ class HaTab extends ConsumerWidget {
                 child: Text('Waiting for heartbeat...', style: TextStyle(color: AppColors.textSecondary)),
               ),
               error: (_, __) => const Center(
-                child: Text('No HA pair configured', style: TextStyle(color: AppColors.textSecondary)),
+                child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary)),
               ),
               data: (hb) => _buildFailoverInfo(context, hb),
             ),
@@ -65,7 +68,7 @@ class HaTab extends ConsumerWidget {
         if (noHaPair)
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text('No HA pair configured', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           ),
         _HaInfoRow(label: 'HA Role', value: hb?.haRoleLabel ?? '--'),
         const Divider(),
