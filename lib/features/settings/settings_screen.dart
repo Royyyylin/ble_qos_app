@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_session.dart';
+import '../../core/auth/pin_storage.dart';
 import '../../core/ble/ble_connector.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/device_provider.dart';
@@ -46,7 +47,10 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Maintenance PIN',
               hint: '6-digit PIN',
               maxLength: 6,
-              onValidated: (pin) => session.elevate(AuthRole.maintenance, pin: pin),
+              onValidated: (pin) {
+                session.elevate(AuthRole.maintenance, pin: pin);
+                PinStorage.saveMaintenancePin(pin);
+              },
             ),
           ),
           ListTile(
@@ -59,7 +63,10 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Engineer PIN',
               hint: '8-digit PIN',
               maxLength: 8,
-              onValidated: (pin) => session.elevate(AuthRole.engineer, pin: pin),
+              onValidated: (pin) {
+                session.elevate(AuthRole.engineer, pin: pin);
+                PinStorage.saveEngineerPin(pin);
+              },
             ),
           ),
           const Divider(),
