@@ -46,7 +46,7 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Maintenance PIN',
               hint: '6-digit PIN',
               maxLength: 6,
-              onValidated: () => session.elevate(AuthRole.maintenance),
+              onValidated: (pin) => session.elevate(AuthRole.maintenance, pin: pin),
             ),
           ),
           ListTile(
@@ -59,7 +59,7 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Engineer PIN',
               hint: '8-digit PIN',
               maxLength: 8,
-              onValidated: () => session.elevate(AuthRole.engineer),
+              onValidated: (pin) => session.elevate(AuthRole.engineer, pin: pin),
             ),
           ),
           const Divider(),
@@ -103,7 +103,7 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     required String hint,
     required int maxLength,
-    required VoidCallback onValidated,
+    required void Function(String pin) onValidated,
   }) {
     final controller = TextEditingController();
     showDialog(
@@ -130,10 +130,8 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () {
               final pin = controller.text;
               if (pin.length == maxLength) {
-                // Phase 1: accept any PIN of correct length (App-side soft control)
-                // Phase 2: validate against stored hash or firmware ENG_UNLOCK
                 Navigator.pop(ctx);
-                onValidated();
+                onValidated(pin);
               }
             },
             style: ElevatedButton.styleFrom(

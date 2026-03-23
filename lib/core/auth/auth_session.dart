@@ -27,12 +27,17 @@ class AuthSession extends ChangeNotifier {
   Timer? _idleTimer;
   Timer? _absoluteTimer;
   void Function()? _onExpired;
+  String? _lastPin; // stored for auto ENG_UNLOCK on reconnect
 
   AuthRole get currentRole => _role;
   bool get isElevated => _role != AuthRole.normal;
 
-  void elevate(AuthRole role, {void Function()? onExpired}) {
+  /// Last PIN used for elevation (for auto GATT ENG_UNLOCK).
+  String? get lastPin => _lastPin;
+
+  void elevate(AuthRole role, {String? pin, void Function()? onExpired}) {
     _role = role;
+    if (pin != null) _lastPin = pin;
     _onExpired = onExpired;
     _startTimers();
     notifyListeners();

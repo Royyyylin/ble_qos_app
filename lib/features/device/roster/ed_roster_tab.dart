@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/auth_provider.dart';
+
 import '../../../core/gatt/gatt_structs.dart';
 import '../../../core/providers/ed_roster_provider.dart';
 import '../../../core/providers/metrics_provider.dart';
@@ -150,7 +152,8 @@ class EdRosterTab extends ConsumerWidget {
   Future<void> _addToRoster(WidgetRef ref, String macAddress) async {
     try {
       final cmdService = ref.read(cmdV2ServiceProvider);
-      final result = await cmdService.rosterAdd(macAddress);
+      final pin = ref.read(authSessionProvider).lastPin;
+      final result = await cmdService.rosterAdd(macAddress, pin: pin);
       if (result != null && result.isSuccess) {
         ref.invalidate(rosterListProvider);
       }
@@ -162,7 +165,8 @@ class EdRosterTab extends ConsumerWidget {
   Future<void> _removeFromRoster(WidgetRef ref, RosterEntry entry) async {
     try {
       final cmdService = ref.read(cmdV2ServiceProvider);
-      final result = await cmdService.rosterRemove(entry.logicalSlot);
+      final pin = ref.read(authSessionProvider).lastPin;
+      final result = await cmdService.rosterRemove(entry.logicalSlot, pin: pin);
       if (result != null && result.isSuccess) {
         ref.invalidate(rosterListProvider);
       }
