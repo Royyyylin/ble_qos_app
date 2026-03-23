@@ -45,15 +45,18 @@ Stream<T> _gattNotifyStream<T>(
     debugPrint('[METRICS] $charUuid initial read failed: $e');
   }
 
-  // 2. Subscribe to notifications for live updates
+  // 2. Subscribe to notifications for live updates (throttled to 1Hz max)
   try {
     final stream = await gatt.subscribe(charUuid);
+    DateTime lastYield = DateTime.now();
     yield* stream
-        .map((data) {
-          debugPrint('[METRICS] $charUuid notify ${data.length} bytes');
-          return data;
-        })
         .where((data) => data.length >= expectedSize)
+        .where((_) {
+          final now = DateTime.now();
+          if (now.difference(lastYield).inMilliseconds < 1000) return false;
+          lastYield = now;
+          return true;
+        })
         .map((data) => parser(Uint8List.sublistView(data, 0, expectedSize)));
   } catch (e) {
     debugPrint('[METRICS] $charUuid subscribe failed: $e');

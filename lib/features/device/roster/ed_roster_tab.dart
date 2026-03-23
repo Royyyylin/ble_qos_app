@@ -47,7 +47,7 @@ class EdRosterTab extends ConsumerWidget {
         if (nonEmpty.isEmpty && scanRoster.isEmpty) {
           return _buildEmptyState();
         }
-        return _buildCombinedRoster(nonEmpty, scanRoster, ref);
+        return _buildCombinedRoster(context, nonEmpty, scanRoster, ref);
       },
     );
   }
@@ -83,6 +83,7 @@ class EdRosterTab extends ConsumerWidget {
   }
 
   Widget _buildCombinedRoster(
+    BuildContext context,
     List<RosterEntry> rosterEntries,
     List<EdRosterEntry> scanRoster,
     WidgetRef ref,
@@ -120,7 +121,7 @@ class EdRosterTab extends ConsumerWidget {
           for (final entry in rosterEntries)
             _RosterSlotTile(
               entry: entry,
-              onRemove: () => _removeFromRoster(ref, entry),
+              onRemove: () => _removeFromRoster(context, ref, entry),
             ),
           const SizedBox(height: 16),
         ],
@@ -141,7 +142,7 @@ class EdRosterTab extends ConsumerWidget {
             _ScanEdTile(
               entry: entry,
               onAddToRoster: entry.device.mac != null
-                  ? () => _addToRoster(ref, entry.device.mac!)
+                  ? () => _addToRoster(context, ref, entry.device.mac!)
                   : null,
             ),
         ],
@@ -149,26 +150,60 @@ class EdRosterTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _addToRoster(WidgetRef ref, String macAddress) async {
+  Future<void> _addToRoster(BuildContext context, WidgetRef ref, String macAddress) async {
     try {
       final cmdService = ref.read(cmdV2ServiceProvider);
       final pin = ref.read(authSessionProvider).lastPin;
       final result = await cmdService.rosterAdd(macAddress, pin: pin);
+      if (!context.mounted) return;
       if (result != null && result.isSuccess) {
         ref.invalidate(rosterListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to roster')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Add failed: ${result?.status ?? "timeout"}')),
+        );
       }
     } catch (e) {
       debugPrint('[ROSTER] add failed: $e');
     }
   }
 
-  Future<void> _removeFromRoster(WidgetRef ref, RosterEntry entry) async {
+  Future<void> _removeFromRoster(BuildContext context, WidgetRef ref, RosterEntry entry) async {
+    // Confirmation dialog for dangerous operation — spec §5
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove from Roster'),
+        content: Text('Remove ${entry.address} (Slot ${entry.logicalSlot})?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
     try {
       final cmdService = ref.read(cmdV2ServiceProvider);
       final pin = ref.read(authSessionProvider).lastPin;
       final result = await cmdService.rosterRemove(entry.logicalSlot, pin: pin);
+      if (!context.mounted) return;
       if (result != null && result.isSuccess) {
         ref.invalidate(rosterListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Removed from roster')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Remove failed: ${result?.status ?? "timeout"}')),
+        );
       }
     } catch (e) {
       debugPrint('[ROSTER] remove failed: $e');
