@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 
 import '../data/database.dart' hide DeviceIdentity;
 import 'device_identity.dart';

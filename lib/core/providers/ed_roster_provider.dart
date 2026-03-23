@@ -43,7 +43,6 @@ final edRosterProvider = Provider<List<EdRosterEntry>>((ref) {
 
   final networkId = connDevice.networkId!;
   final scanResults = ref.watch(scanResultsProvider);
-  final edStatusMap = ref.watch(edStatusMapProvider);
 
   // Get firmware roster (may be empty if characteristic not available)
   final rosterAsync = ref.watch(rosterListProvider);

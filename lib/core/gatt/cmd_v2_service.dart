@@ -20,7 +20,7 @@ class CmdV2Service {
   final BleGatt _gatt;
   int _nextTxnId = 1;
   StreamSubscription<Uint8List>? _resultSub;
-  final _pending = <int, Completer<CmdResult>>{};
+  final _pending = <int, Completer<CmdResult?>>{};
   bool _engUnlocked = false;
 
   CmdV2Service(this._gatt);

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ble_qos_app/core/ble/ble_models.dart';
-import 'package:ble_qos_app/core/ble/ble_scanner.dart';
 
 void main() {
   group('BleScanner TTL Eviction', () {
