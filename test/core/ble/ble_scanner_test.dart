@@ -9,7 +9,7 @@ void main() {
       // from _devices map after offlineThreshold is exceeded.
       // Since BleScanner uses FlutterBluePlus internally, we test the
       // pure function eviction logic via deviceStatusFromLastSeen.
-      final now = DateTime(2026, 1, 1, 0, 1, 0); // 60s later
+      final now = DateTime(2026, 1, 1, 0, 2, 5); // 125s later (> 120s offline threshold)
       final lastSeen = DateTime(2026, 1, 1, 0, 0, 0);
       final status = deviceStatusFromLastSeen(lastSeen, now: now);
       expect(status, DeviceStatus.offline);

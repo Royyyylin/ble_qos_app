@@ -23,7 +23,8 @@ import 'roster/ed_roster_tab.dart';
 /// Capability-driven device screen with ConnectionStateIndicator — spec §5.
 /// Builds TabBar dynamically from negotiated capabilities based on device role.
 /// Watches BleConnectionState and shows error screen on disconnection.
-class DeviceScreen extends ConsumerWidget {
+/// Disconnects on dispose (leave screen) and app background — spec §3.
+class DeviceScreen extends ConsumerStatefulWidget {
   final String deviceId;
 
   const DeviceScreen({
@@ -31,8 +32,46 @@ class DeviceScreen extends ConsumerWidget {
     required this.deviceId,
   });
 
-  /// Build the common AppBar with ConnectionStateIndicator.
-  /// Shows device name instead of StableId (UUIDv4 is not user-friendly).
+  @override
+  ConsumerState<DeviceScreen> createState() => _DeviceScreenState();
+}
+
+class _DeviceScreenState extends ConsumerState<DeviceScreen> with WidgetsBindingObserver {
+  String get deviceId => widget.deviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  BleConnector? _connector;
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // Disconnect on leave — spec §3 (foundations/03-ble-lifecycle.md)
+    if (_connector != null &&
+        (_connector!.state == BleConnectionState.connected ||
+         _connector!.state == BleConnectionState.connecting)) {
+      _connector!.disconnect();
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // App backgrounded → disconnect — spec §3
+      _connector?.disconnect();
+    } else if (state == AppLifecycleState.resumed) {
+      // App foregrounded → check and reconnect if needed
+      if (_connector?.state == BleConnectionState.disconnected) {
+        _connector?.connect(deviceId);
+      }
+    }
+  }
+
   AppBar _buildAppBar(BleConnectionState bleState, WidgetRef ref, {PreferredSizeWidget? bottom}) {
     final connDevice = ref.watch(connectedDeviceProvider);
     final title = connDevice?.name ?? deviceId;
@@ -57,10 +96,11 @@ class DeviceScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    _connector = ref.watch(bleConnectorProvider);
     final connectionState = ref.watch(bleConnectionStateProvider);
     // While stream hasn't emitted yet, check connector state directly
-    final bleState = connectionState.valueOrNull ?? ref.read(bleConnectorProvider).state;
+    final bleState = connectionState.valueOrNull ?? _connector!.state;
 
     // Show loading while connecting/handshaking
     if (bleState == BleConnectionState.connecting || bleState == BleConnectionState.handshaking) {

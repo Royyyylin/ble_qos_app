@@ -7,13 +7,13 @@ enum DeviceStatus {
   offline,  // > 30s since last adv
 }
 
-/// Determine device status from lastSeen time — spec §4.1.
-/// [staleDuration] = 10s, [offlineDuration] = 30s.
+/// Determine device status from lastSeen time — spec §3 (foundations/03-ble-lifecycle.md).
+/// [staleDuration] = 30s, [offlineDuration] = 120s (two-stage TTL).
 DeviceStatus deviceStatusFromLastSeen(
   DateTime lastSeen, {
   DateTime? now,
-  Duration staleDuration = const Duration(seconds: 10),
-  Duration offlineDuration = const Duration(seconds: 30),
+  Duration staleDuration = const Duration(seconds: 30),
+  Duration offlineDuration = const Duration(seconds: 120),
 }) {
   final current = now ?? DateTime.now();
   final elapsed = current.difference(lastSeen);

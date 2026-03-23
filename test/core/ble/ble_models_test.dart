@@ -155,20 +155,20 @@ void main() {
   });
 
   group('DeviceStatus from timing', () {
-    test('online when lastSeen < 10s ago', () {
-      final now = DateTime(2026, 1, 1, 0, 0, 5);
+    test('online when lastSeen < 30s ago', () {
+      final now = DateTime(2026, 1, 1, 0, 0, 15);
       final lastSeen = DateTime(2026, 1, 1, 0, 0, 0);
       expect(deviceStatusFromLastSeen(lastSeen, now: now), DeviceStatus.online);
     });
 
-    test('stale when lastSeen 10-30s ago', () {
-      final now = DateTime(2026, 1, 1, 0, 0, 15);
+    test('stale when lastSeen 30-120s ago', () {
+      final now = DateTime(2026, 1, 1, 0, 0, 45);
       final lastSeen = DateTime(2026, 1, 1, 0, 0, 0);
       expect(deviceStatusFromLastSeen(lastSeen, now: now), DeviceStatus.stale);
     });
 
-    test('offline when lastSeen > 30s ago', () {
-      final now = DateTime(2026, 1, 1, 0, 0, 35);
+    test('offline when lastSeen > 120s ago', () {
+      final now = DateTime(2026, 1, 1, 0, 2, 5);
       final lastSeen = DateTime(2026, 1, 1, 0, 0, 0);
       expect(deviceStatusFromLastSeen(lastSeen, now: now), DeviceStatus.offline);
     });

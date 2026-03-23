@@ -33,9 +33,10 @@ class BleScanner {
   static const Duration scanWindow = Duration(seconds: 2);
   static const Duration pauseWindow = Duration(seconds: 3);
 
-  /// Status thresholds — spec §4.1.
-  static const Duration staleThreshold = Duration(seconds: 10);
-  static const Duration offlineThreshold = Duration(seconds: 30);
+  /// Status thresholds — spec §3 (foundations/03-ble-lifecycle.md).
+  /// Two-stage: 30s → stale, 120s → offline (evict from list).
+  static const Duration staleThreshold = Duration(seconds: 30);
+  static const Duration offlineThreshold = Duration(seconds: 120);
 
   /// QoS service UUID for Dart-layer filtering.
   static final Guid _qosServiceUuid = Guid(GattUuids.serviceQos);
