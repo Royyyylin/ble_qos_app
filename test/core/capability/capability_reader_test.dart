@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ble_qos_app/core/capability/capability_model.dart';
 import 'package:ble_qos_app/core/capability/capability_reader.dart';
 
 void main() {

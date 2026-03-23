@@ -17,6 +17,10 @@ import '../../core/theme/app_colors.dart';
 import 'fleet_summary.dart';
 import 'scan_device_tile.dart';
 
+/// Global RouteObserver for scanner scan lifecycle management.
+/// Register this in GoRouter/MaterialApp's navigatorObservers.
+final scannerRouteObserver = RouteObserver<ModalRoute<void>>();
+
 /// Fleet Overview Dashboard — spec §4.
 /// Shows fleet summary cards, search bar, and device list grouped by network_id.
 class ScannerScreen extends ConsumerStatefulWidget {
@@ -26,7 +30,7 @@ class ScannerScreen extends ConsumerStatefulWidget {
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends ConsumerState<ScannerScreen> {
+class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
   List<ScannedDevice> _devices = [];
   String _searchQuery = '';
   bool _scanning = false;
@@ -39,6 +43,22 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     super.initState();
     // Auto-start scan on screen load
     Future.microtask(() => _startScan());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is ModalRoute<void>) {
+      scannerRouteObserver.subscribe(this, route);
+    }
+  }
+
+  /// Called when a pushed route is popped and this page becomes visible again.
+  /// Issue #3: restart scan when returning from DeviceScreen.
+  @override
+  void didPopNext() {
+    _startScan();
   }
 
   Future<void> _startScan() async {
@@ -152,6 +172,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   @override
   void dispose() {
+    scannerRouteObserver.unsubscribe(this);
     _stopScan(updateState: false);
     super.dispose();
   }

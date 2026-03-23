@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ble/ble_gatt.dart';
-import '../ble/manufacturer_data.dart';
 import '../gatt/gatt_uuids.dart';
 import '../ble/ble_connector.dart';
 import '../providers/device_provider.dart';

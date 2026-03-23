@@ -63,7 +63,12 @@ Stream<T> _gattNotifyStream<T>(
   }
 }
 
-/// Live STATUS notify stream — auto-detects 13-byte full or 4-byte indexed format.
+/// STATUS polling interval — firmware sends only 4-byte indexed notify
+/// (zone/profile/phy/tx). Full 13-byte STATUS (rssi/pdr/lat/jit) requires GATT read.
+const _statusPollInterval = Duration(seconds: 2);
+
+/// Live STATUS stream — polls full 13-byte STATUS every 2s via GATT read.
+/// Also subscribes to 4-byte indexed notifies for edStatusMap updates.
 final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* {
   final device = ref.watch(connectedDeviceProvider);
   if (device == null) return;
@@ -71,63 +76,34 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
 
-  // Keep last full status so 4-byte indexed notifies don't erase rssi/pdr/lat/jit.
-  QosStatus lastFull = const QosStatus();
-
-  // Initial read (full 13-byte struct)
+  // Subscribe to 4-byte indexed notifies for edStatusMap (fire-and-forget)
   try {
-    final data = await gatt.read(GattUuids.status);
-    debugPrint('[METRICS] STATUS read ${data.length} bytes: ${data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}');
-    if (data.length >= QosStatus.indexedSize) {
-      lastFull = QosStatus.parse(data);
-      debugPrint('[METRICS] STATUS parsed: rssi=${lastFull.rssi} pdr=${lastFull.pdr} lat=${lastFull.latency} jit=${lastFull.jitter} zone=${lastFull.zone} phy=${lastFull.phy} tx=${lastFull.txPower}');
-      yield lastFull;
-    }
+    final stream = await gatt.subscribe(GattUuids.status);
+    stream
+        .where((data) => data.length >= QosStatus.indexedSize && data.length < QosStatus.size)
+        .listen((data) {
+      final indexed = QosStatus.fromIndexedBytes(data);
+      ref.read(edStatusMapProvider.notifier).update(indexed);
+    });
   } catch (e) {
-    debugPrint('[METRICS] STATUS initial read failed: $e');
+    debugPrint('[METRICS] STATUS subscribe for edStatusMap failed: $e');
   }
 
-  // Subscribe to notify (may be 4-byte indexed or 13-byte full)
-  try {
-    debugPrint('[METRICS] STATUS subscribing...');
-    final stream = await gatt.subscribe(GattUuids.status);
-    debugPrint('[METRICS] STATUS subscribed OK');
-    DateTime lastYield = DateTime.now();
-    yield* stream
-        .where((data) => data.length >= QosStatus.indexedSize)
-        .map((data) {
-          if (data.length >= QosStatus.size) {
-            // Full 13-byte notify — update everything
-            lastFull = QosStatus.parse(data);
-            return lastFull;
-          } else {
-            // 4-byte indexed notify — merge with last full (keep rssi/pdr/lat/jit)
-            final indexed = QosStatus.fromIndexedBytes(data);
-            ref.read(edStatusMapProvider.notifier).update(indexed);
-            // Merge: use indexed zone/profile/phy/tx, keep full rssi/pdr/lat/jit
-            lastFull = QosStatus(
-              rssi: lastFull.rssi,
-              pdr: lastFull.pdr,
-              latency: lastFull.latency,
-              jitter: lastFull.jitter,
-              zone: indexed.zone,
-              profile: indexed.profile,
-              phy: indexed.phy,
-              txPower: indexed.txPower,
-              interval: indexed.interval,
-              edIndex: indexed.edIndex,
-            );
-            return lastFull;
-          }
-        })
-        .where((_) {
-          final now = DateTime.now();
-          if (now.difference(lastYield).inMilliseconds < 1000) return false;
-          lastYield = now;
-          return true;
-        });
-  } catch (e) {
-    debugPrint('[METRICS] STATUS subscribe failed: $e');
+  // Poll full 13-byte STATUS every 2s
+  while (true) {
+    try {
+      final data = await gatt.read(GattUuids.status);
+      if (data.length >= QosStatus.indexedSize) {
+        final status = QosStatus.parse(data);
+        debugPrint('[METRICS] STATUS poll: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} jit=${status.jitter}');
+        yield status;
+      }
+    } catch (e) {
+      debugPrint('[METRICS] STATUS poll read failed: $e');
+      return; // Stop polling if read fails (disconnected)
+    }
+    await Future.delayed(_statusPollInterval);
+    if (connector.state != BleConnectionState.connected) return;
   }
 });
 

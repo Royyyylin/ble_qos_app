@@ -13,6 +13,7 @@ import 'features/audit/audit_screen.dart';
 
 final _router = GoRouter(
   initialLocation: '/',
+  observers: [scannerRouteObserver],
   routes: [
     GoRoute(path: '/', builder: (_, _) => const ScannerScreen()),
     GoRoute(path: '/device/:id', builder: (_, state) =>

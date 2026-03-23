@@ -5,6 +5,9 @@ import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
+/// User-facing message when device has no HA pair configured.
+const _noHaPairMessage = 'No HA pair configured';
+
 /// HA status tab — subscribes to HA_HB notify, parses 21-byte heartbeat,
 /// displays HA role, epoch, heartbeat count, failover event (spec §10).
 class HaTab extends ConsumerWidget {
@@ -31,7 +34,7 @@ class HaTab extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: hbAsync.when(
                 loading: () => _buildFields(context, null),
-                error: (e, _) => _buildFields(context, null, error: '$e'),
+                error: (_, __) => _buildFields(context, null, noHaPair: true),
                 data: (hb) => _buildFields(context, hb),
               ),
             ),
@@ -47,8 +50,8 @@ class HaTab extends ConsumerWidget {
               loading: () => const Center(
                 child: Text('Waiting for heartbeat...', style: TextStyle(color: AppColors.textSecondary)),
               ),
-              error: (e, _) => Center(
-                child: Text('Error: $e', style: const TextStyle(color: AppColors.error)),
+              error: (_, __) => const Center(
+                child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary)),
               ),
               data: (hb) => _buildFailoverInfo(context, hb),
             ),
@@ -58,14 +61,14 @@ class HaTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildFields(BuildContext context, HaHeartbeat? hb, {String? error}) {
+  Widget _buildFields(BuildContext context, HaHeartbeat? hb, {bool noHaPair = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(error, style: const TextStyle(color: AppColors.error, fontSize: 12)),
+        if (noHaPair)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           ),
         _HaInfoRow(label: 'HA Role', value: hb?.haRoleLabel ?? '--'),
         const Divider(),

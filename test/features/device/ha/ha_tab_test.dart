@@ -58,5 +58,28 @@ void main() {
       expect(find.text('Standby'), findsOneWidget);
       expect(find.text('No failover events'), findsOneWidget);
     });
+
+    // RED/BLUE REVIEW — Task 7:
+    // Blue: HA tab shows 'No HA pair configured' instead of raw error when subscribe fails. Modifies ha_tab.dart + test.
+    // Red: No issues found. Signature change (error→noHaPair) is internal to _buildFields, no external callers.
+    testWidgets('given_subscribe_error_when_rendered_then_shows_no_ha_pair_message', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            haHeartbeatStreamProvider.overrideWith(
+              (ref) => Stream<HaHeartbeat>.error('Subscribe failed'),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: HaTab(deviceId: 'TEST-HA')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Issue #5: Should show user-friendly message, not raw error
+      // Text appears in both the card fields and the failover section
+      expect(find.text('No HA pair configured'), findsWidgets);
+    });
   });
 }
