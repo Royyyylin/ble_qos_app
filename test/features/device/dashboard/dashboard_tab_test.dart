@@ -165,4 +165,31 @@ void main() {
       expect(find.text('1024'), findsOneWidget); // Throughput
     },
   );
+
+  // RED/BLUE REVIEW — Task 5:
+  // Blue: Add test verifying tpBps=0 displays 'N/A' instead of '--' on dashboard throughput card.
+  // Red: No issues found — test-only task, no guard rule violations, no regression risk.
+  testWidgets(
+    'given_tpBps_is_zero_when_dashboard_renders_then_shows_na_not_dashes',
+    (tester) async {
+      final status = makeStatus();
+      const metrics = QosMetricsV2(tpBps: 0);
+      await tester.pumpWidget(buildTestWidget(
+        overrides: [
+          statusStreamProvider.overrideWith((ref) => Stream.value(status)),
+          metricsStreamProvider.overrideWith((ref) => Stream.value(metrics)),
+        ],
+      ));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Scroll down to throughput card
+      await tester.drag(find.byType(GridView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      // Issue #6: tpBps=0 should show 'N/A' not '--'
+      expect(find.text('N/A'), findsOneWidget);
+    },
+  );
 }
