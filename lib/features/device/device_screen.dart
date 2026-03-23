@@ -25,14 +25,10 @@ import 'roster/ed_roster_tab.dart';
 /// Watches BleConnectionState and shows error screen on disconnection.
 class DeviceScreen extends ConsumerWidget {
   final String deviceId;
-  final bool showControlTab;
-  final bool showAdminTab;
 
   const DeviceScreen({
     super.key,
     required this.deviceId,
-    this.showControlTab = false,
-    this.showAdminTab = false,
   });
 
   /// Build the common AppBar with ConnectionStateIndicator.
@@ -129,15 +125,15 @@ class DeviceScreen extends ConsumerWidget {
       }
     }
 
-    // Add permission-gated tabs based on auth role (spec §3.2)
+    // Permission-gated tabs derived from auth role (spec §6: role+capability+version)
     final authRole = ref.watch(authSessionProvider).currentRole;
-    if (showControlTab && PermissionGuard.canWrite(authRole, GattAction.ctrl)) {
+    if (PermissionGuard.canWrite(authRole, GattAction.ctrl)) {
       tabs.add(_TabEntry(
         label: 'Control',
         widget: ControlTab(deviceId: deviceId),
       ));
     }
-    if (showAdminTab && authRole == AuthRole.engineer) {
+    if (authRole == AuthRole.engineer) {
       tabs.add(_TabEntry(
         label: 'Admin',
         widget: AdminTab(deviceId: deviceId),

@@ -16,11 +16,7 @@ final _router = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (_, _) => const ScannerScreen()),
     GoRoute(path: '/device/:id', builder: (_, state) =>
-      DeviceScreen(
-        deviceId: state.pathParameters['id']!,
-        showControlTab: true,
-        showAdminTab: true,
-      )),
+      DeviceScreen(deviceId: state.pathParameters['id']!)),
     GoRoute(path: '/provisioning/:id', builder: (_, state) =>
       ProvisioningScreen(deviceId: state.pathParameters['id']!)),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),

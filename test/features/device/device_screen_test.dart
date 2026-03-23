@@ -103,11 +103,7 @@ void main() {
             authSessionProvider.overrideWith((_) => elevatedSession),
           ],
           child: const MaterialApp(
-            home: DeviceScreen(
-              deviceId: 'TEST-03',
-              showControlTab: true,
-              showAdminTab: true,
-            ),
+            home: DeviceScreen(deviceId: 'TEST-03'),
           ),
         ),
       );
