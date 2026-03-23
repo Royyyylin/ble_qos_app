@@ -181,6 +181,8 @@ class DeviceScreen extends ConsumerWidget {
       );
     }
 
+    final session = ref.watch(authSessionProvider);
+
     return DefaultTabController(
       length: tabs.length,
       child: Scaffold(
@@ -201,8 +203,19 @@ class DeviceScreen extends ConsumerWidget {
             )).toList(),
           ),
         ),
-        body: TabBarView(
-          children: tabs.map((t) => t.widget).toList(),
+        body: Column(
+          children: [
+            if (session.isWarning)
+              _SessionWarningBanner(
+                remainingSeconds: session.remainingSeconds,
+                onLockNow: () => session.lockNow(),
+              ),
+            Expanded(
+              child: TabBarView(
+                children: tabs.map((t) => t.widget).toList(),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -245,6 +258,45 @@ class _PlaceholderTab extends StatelessWidget {
       child: Text(
         '$label (coming soon)',
         style: const TextStyle(color: AppColors.textSecondary),
+      ),
+    );
+  }
+}
+
+/// Warning banner shown when engineer/maintenance session is about to expire.
+class _SessionWarningBanner extends StatelessWidget {
+  final int remainingSeconds;
+  final VoidCallback onLockNow;
+
+  const _SessionWarningBanner({
+    required this.remainingSeconds,
+    required this.onLockNow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.warning.withValues(alpha: 0.2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.timer, color: AppColors.warning, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Session expires in ${remainingSeconds}s',
+            style: const TextStyle(color: AppColors.warning, fontSize: 13),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: onLockNow,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.warning,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const Text('Lock Now'),
+          ),
+        ],
       ),
     );
   }

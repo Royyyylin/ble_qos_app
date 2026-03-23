@@ -20,34 +20,52 @@ enum AuthRole {
   };
 }
 
+/// Warning threshold before session expires.
+const _warningThreshold = Duration(seconds: 60);
+
 /// Auth session state — manages role elevation, idle + absolute timeouts.
 /// Extends ChangeNotifier so Riverpod widgets rebuild on role changes.
 class AuthSession extends ChangeNotifier {
   AuthRole _role = AuthRole.normal;
   Timer? _idleTimer;
   Timer? _absoluteTimer;
+  Timer? _warningTimer;
+  Timer? _countdownTimer;
   void Function()? _onExpired;
-  String? _lastPin; // stored for auto ENG_UNLOCK on reconnect
+  void Function()? _onWarning;
+  String? _lastPin;
+  DateTime? _idleExpiresAt;
+  int _remainingSeconds = 0;
 
   AuthRole get currentRole => _role;
   bool get isElevated => _role != AuthRole.normal;
-
-  /// Last PIN used for elevation (for auto GATT ENG_UNLOCK).
   String? get lastPin => _lastPin;
 
-  void elevate(AuthRole role, {String? pin, void Function()? onExpired}) {
+  /// Seconds remaining before idle timeout. 0 if not elevated.
+  int get remainingSeconds => _remainingSeconds;
+
+  /// Whether we're in the warning zone (< 60s remaining).
+  bool get isWarning => isElevated && _remainingSeconds > 0 && _remainingSeconds <= _warningThreshold.inSeconds;
+
+  void elevate(AuthRole role, {String? pin, void Function()? onExpired, void Function()? onWarning}) {
     _role = role;
     if (pin != null) _lastPin = pin;
     _onExpired = onExpired;
+    _onWarning = onWarning;
     _startTimers();
     notifyListeners();
   }
 
   void demote() {
     _role = AuthRole.normal;
+    _remainingSeconds = 0;
+    _idleExpiresAt = null;
     _cancelTimers();
     notifyListeners();
   }
+
+  /// Lock now — immediate demote (for Lock Now button).
+  void lockNow() => demote();
 
   void touch() {
     if (!isElevated) return;
@@ -57,17 +75,53 @@ class AuthSession extends ChangeNotifier {
   void _startTimers() {
     _cancelTimers();
     if (_role.idleTimeout > Duration.zero) {
+      _idleExpiresAt = DateTime.now().add(_role.idleTimeout);
+      _remainingSeconds = _role.idleTimeout.inSeconds;
       _idleTimer = Timer(_role.idleTimeout, _expire);
+
+      // Warning timer: fires when remaining < 60s
+      final warningDelay = _role.idleTimeout - _warningThreshold;
+      if (warningDelay > Duration.zero) {
+        _warningTimer = Timer(warningDelay, () {
+          _onWarning?.call();
+          _startCountdown();
+        });
+      } else {
+        _startCountdown();
+      }
     }
     if (_role.absoluteTimeout > Duration.zero) {
       _absoluteTimer = Timer(_role.absoluteTimeout, _expire);
     }
   }
 
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_idleExpiresAt == null) return;
+      _remainingSeconds = _idleExpiresAt!.difference(DateTime.now()).inSeconds;
+      if (_remainingSeconds < 0) _remainingSeconds = 0;
+      notifyListeners();
+    });
+  }
+
   void _restartIdleTimer() {
     _idleTimer?.cancel();
+    _warningTimer?.cancel();
+    _countdownTimer?.cancel();
     if (_role.idleTimeout > Duration.zero) {
+      _idleExpiresAt = DateTime.now().add(_role.idleTimeout);
+      _remainingSeconds = _role.idleTimeout.inSeconds;
       _idleTimer = Timer(_role.idleTimeout, _expire);
+
+      final warningDelay = _role.idleTimeout - _warningThreshold;
+      if (warningDelay > Duration.zero) {
+        _warningTimer = Timer(warningDelay, () {
+          _onWarning?.call();
+          _startCountdown();
+        });
+      }
+      notifyListeners();
     }
   }
 
@@ -79,8 +133,12 @@ class AuthSession extends ChangeNotifier {
   void _cancelTimers() {
     _idleTimer?.cancel();
     _absoluteTimer?.cancel();
+    _warningTimer?.cancel();
+    _countdownTimer?.cancel();
     _idleTimer = null;
     _absoluteTimer = null;
+    _warningTimer = null;
+    _countdownTimer = null;
   }
 
   @override
