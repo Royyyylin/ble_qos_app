@@ -89,18 +89,25 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
     debugPrint('[METRICS] STATUS subscribe for edStatusMap failed: $e');
   }
 
-  // Poll full 13-byte STATUS every 2s
+  // Poll full 13-byte STATUS every 2s.
+  // Keep last valid (non-zero) reading — firmware sometimes returns 0 between updates.
+  QosStatus lastValid = const QosStatus();
   while (true) {
     try {
       final data = await gatt.read(GattUuids.status);
       if (data.length >= QosStatus.indexedSize) {
         final status = QosStatus.parse(data);
-        debugPrint('[METRICS] STATUS poll: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} jit=${status.jitter}');
-        yield status;
+        // Only update if non-zero (firmware returns 0 between real updates)
+        if (status.rssi != 0 || status.pdr != 0 || status.latency != 0) {
+          lastValid = status;
+        }
+        if (lastValid.rssi != 0 || lastValid.pdr != 0 || lastValid.latency != 0) {
+          yield lastValid;
+        }
       }
     } catch (e) {
       debugPrint('[METRICS] STATUS poll read failed: $e');
-      return; // Stop polling if read fails (disconnected)
+      return;
     }
     await Future.delayed(_statusPollInterval);
     if (connector.state != BleConnectionState.connected) return;
