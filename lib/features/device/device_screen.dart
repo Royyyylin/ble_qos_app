@@ -7,6 +7,7 @@ import 'package:ble_qos_app/core/capability/capability_reader.dart';
 import 'package:ble_qos_app/core/capability/capability_registry.dart';
 import 'package:ble_qos_app/core/capability/degradation_info.dart';
 import 'package:ble_qos_app/core/auth/auth_session.dart';
+import 'package:ble_qos_app/core/error/ble_error.dart';
 import 'package:ble_qos_app/core/auth/permission_guard.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 import 'package:ble_qos_app/core/providers/auth_provider.dart';
@@ -118,9 +119,12 @@ class _DeviceScreenState extends ConsumerState<DeviceScreen> with WidgetsBinding
           message: bleState == BleConnectionState.error
               ? 'Connection to device failed'
               : 'Device disconnected',
+          errorType: bleState == BleConnectionState.error
+              ? BleErrorType.gattFailure
+              : BleErrorType.unexpectedDisconnect,
           onRetry: () {
             final reconnect = ref.read(bleReconnectProvider);
-            reconnect.cancel(); // reset any previous backoff
+            reconnect.cancel();
             final connector = ref.read(bleConnectorProvider);
             connector.connect(deviceId);
           },

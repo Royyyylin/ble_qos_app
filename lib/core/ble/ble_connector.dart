@@ -69,9 +69,13 @@ class BleConnector {
           hasConnected = true;
           try {
             debugPrint('[BLE_CONN] connected, discovering services...');
-            _services = await _device!.discoverServices();
+            _services = await _device!.discoverServices()
+                .timeout(const Duration(seconds: 5), onTimeout: () =>
+                    throw TimeoutException('Service discovery timeout', const Duration(seconds: 5)));
             debugPrint('[BLE_CONN] discovered ${_services?.length} services, handshaking...');
-            await _performHandshake();
+            await _performHandshake()
+                .timeout(const Duration(seconds: 3), onTimeout: () =>
+                    throw TimeoutException('Handshake timeout', const Duration(seconds: 3)));
             debugPrint('[BLE_CONN] handshake done, completing');
             if (!completer.isCompleted) completer.complete();
           } catch (e) {
