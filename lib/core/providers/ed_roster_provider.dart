@@ -76,8 +76,15 @@ final edRosterProvider = Provider<List<EdRosterEntry>>((ref) {
   // Sort by RSSI (strongest first) for stable ordering
   eds.sort((a, b) => b.smoothedRssi.compareTo(a.smoothedRssi));
 
-  return eds.map((device) {
-    // Match by MAC address to firmware roster
+  // Filter out EDs already in firmware roster (Issue #4 — avoid duplicates)
+  final discoveredEds = eds.where((device) {
+    final mac = device.mac?.toUpperCase();
+    // Keep if no MAC (can't match) or MAC not in roster
+    return mac == null || !rosterByMac.containsKey(mac);
+  }).toList();
+
+  return discoveredEds.map((device) {
+    // Match by MAC address to firmware roster (for EDs without MAC that slip through)
     final mac = device.mac?.toUpperCase();
     final rosterSlot = mac != null ? rosterByMac[mac] : null;
     // Match STATUS by roster slot index (more accurate than scan order)
