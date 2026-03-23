@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ble_qos_app/features/device/ha/ha_tab.dart';
+import 'package:ble_qos_app/core/gatt/caps_v2.dart';
 import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
+
+/// Override capsV2Provider with ha_state=1 (active) so HA tab shows heartbeat fields.
+Override _capsActive() =>
+    capsV2Provider.overrideWith((ref) => Future.value(const CapsV2(hasHa: true, haState: 1)));
+
+Override _capsStandalone() =>
+    capsV2Provider.overrideWith((ref) => Future.value(const CapsV2(hasHa: false, haState: 0)));
 
 void main() {
   group('HaTab', () {
@@ -15,6 +23,7 @@ void main() {
             haHeartbeatStreamProvider.overrideWith(
               (ref) => const Stream<HaHeartbeat>.empty(),
             ),
+            _capsActive(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: HaTab(deviceId: 'TEST-HA')),
@@ -44,6 +53,7 @@ void main() {
             haHeartbeatStreamProvider.overrideWith(
               (ref) => Stream.value(hb),
             ),
+            _capsActive(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: HaTab(deviceId: 'TEST-HA')),
@@ -69,6 +79,7 @@ void main() {
             haHeartbeatStreamProvider.overrideWith(
               (ref) => Stream<HaHeartbeat>.error('Subscribe failed'),
             ),
+            _capsActive(),
           ],
           child: const MaterialApp(
             home: Scaffold(body: HaTab(deviceId: 'TEST-HA')),

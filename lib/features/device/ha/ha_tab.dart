@@ -18,6 +18,9 @@ class HaTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hbAsync = ref.watch(haHeartbeatStreamProvider);
+    final capsAsync = ref.watch(capsV2Provider);
+    final haState = capsAsync.valueOrNull?.haState ?? -1;
+    final isStandalone = haState == 0;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -29,34 +32,62 @@ class HaTab extends ConsumerWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+          if (isStandalone)
+            _buildStandaloneCard(context)
+          else ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: hbAsync.when(
+                  loading: () => _buildFields(context, null),
+                  error: (_, __) => _buildFields(context, null, noHaPair: true),
+                  data: (hb) => _buildFields(context, hb),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Failover History',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
               child: hbAsync.when(
-                loading: () => _buildFields(context, null),
-                error: (_, __) => _buildFields(context, null, noHaPair: true),
-                data: (hb) => _buildFields(context, hb),
+                loading: () => const Center(
+                  child: Text('Waiting for heartbeat...', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                error: (_, __) => const Center(
+                  child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                data: (hb) => _buildFailoverInfo(context, hb),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Failover History',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: hbAsync.when(
-              loading: () => const Center(
-                child: Text('Waiting for heartbeat...', style: TextStyle(color: AppColors.textSecondary)),
-              ),
-              error: (_, __) => const Center(
-                child: Text(_noHaPairMessage, style: TextStyle(color: AppColors.textSecondary)),
-              ),
-              data: (hb) => _buildFailoverInfo(context, hb),
-            ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildStandaloneCard(BuildContext context) {
+    return const Expanded(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hub_outlined, size: 48, color: AppColors.textSecondary),
+            SizedBox(height: 16),
+            Text(
+              'Standalone Mode',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This device has no HA peer configured.\nHA failover requires two paired Gateways.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
       ),
     );
   }

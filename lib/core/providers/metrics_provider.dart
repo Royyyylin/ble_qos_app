@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ble/ble_connector.dart';
 import '../ble/ble_gatt.dart';
 import '../ble/ble_models.dart';
+import '../gatt/caps_v2.dart';
 import '../gatt/cmd_v2_service.dart';
 import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
@@ -177,6 +178,25 @@ final cmdV2ServiceProvider = Provider.autoDispose<CmdV2Service>((ref) {
   service.startListening();
   ref.onDispose(() => service.dispose());
   return service;
+});
+
+/// Read CAPS_V2 from GATT (CBOR map). Falls back to empty CapsV2 if not available.
+final capsV2Provider = FutureProvider.autoDispose<CapsV2>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return const CapsV2();
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.capsV2);
+    final caps = CapsV2.fromBytes(data);
+    debugPrint('[CAPS_V2] proto=${caps.protoVer} maxEd=${caps.maxEd} hasHa=${caps.hasHa} haState=${caps.haStateLabel}');
+    return caps;
+  } catch (e) {
+    debugPrint('[CAPS_V2] read failed (falling back to defaults): $e');
+    return const CapsV2();
+  }
 });
 
 /// Read FW_VERSION from GATT (one-shot, static).

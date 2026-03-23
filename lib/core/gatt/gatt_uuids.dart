@@ -34,4 +34,5 @@ class GattUuids {
   static const cmdResult = '6f8a9c1e-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const cmdV2 = '6f8a9c1f-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const rosterList = '6f8a9c20-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const capsV2 = '6f8a9c21-2c1a-4b6f-8a11-8ddc1f4e7b25';
 }
