@@ -11,9 +11,6 @@ import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 Override _capsActive() =>
     capsV2Provider.overrideWith((ref) => Future.value(const CapsV2(hasHa: true, haState: 1)));
 
-Override _capsStandalone() =>
-    capsV2Provider.overrideWith((ref) => Future.value(const CapsV2(hasHa: false, haState: 0)));
-
 void main() {
   group('HaTab', () {
     testWidgets('given no heartbeat data when rendered then shows placeholder dashes', (tester) async {

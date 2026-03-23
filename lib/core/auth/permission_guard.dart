@@ -23,10 +23,11 @@ class PermissionGuard {
     return switch (action) {
       GattAction.peerRole => true,
       // Control actions — maintenance+ (spec §3.2)
-      GattAction.ctrl || GattAction.gwCfg || GattAction.ping || GattAction.cmdReboot =>
+      GattAction.ctrl || GattAction.gwCfg || GattAction.ping || GattAction.cmdReboot
+          || GattAction.role =>
         role == AuthRole.maintenance || role == AuthRole.engineer,
       // Admin actions — engineer only (spec §3.2)
-      GattAction.mode || GattAction.role || GattAction.engUnlock || GattAction.engPinSet =>
+      GattAction.mode || GattAction.engUnlock || GattAction.engPinSet =>
         role == AuthRole.engineer,
       _ => false,
     };
