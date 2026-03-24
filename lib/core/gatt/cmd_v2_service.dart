@@ -7,11 +7,10 @@ import '../ble/ble_gatt.dart';
 import 'gatt_structs.dart';
 import 'gatt_uuids.dart';
 
-/// Opcodes that require firmware ENG_UNLOCK before writing.
+/// Opcodes that require firmware ENG_UNLOCK before writing (per ble_api.yaml).
 const _engUnlockRequired = {
   CmdV2Opcode.reboot,
-  CmdV2Opcode.rosterAdd,
-  CmdV2Opcode.rosterRemove,
+  CmdV2Opcode.setMaxEd,
 };
 
 /// Manages CMD_V2 writes and correlates CMD_RESULT responses by txn_id.

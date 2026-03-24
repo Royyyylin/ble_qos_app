@@ -70,34 +70,35 @@ void main() {
   });
 
   group('QosCtrl', () {
-    test('decodes 9-byte CTRL correctly', () {
+    test('decodes 9-byte CTRL per ble_api.yaml layout', () {
+      // Layout: profile(0) phy(1) tx(2) tpMode(3) credA(4) credC(5) credR(6) interval(7-8 LE)
       final data = Uint8List.fromList([
-        0, 2, 0x03, 0x50, 0x00, // profile=0, phy=2, tx=3, interval=80 LE
-        5, 3, 2, 0x00, // creditA=5, creditC=3, creditR=2, flags=0
+        0, 2, 0x03, 1, // profile=0, phy=2, tx=3, tpMode=1(PRODUCT)
+        5, 3, 2, 0x50, 0x00, // credA=5, credC=3, credR=2, interval=80 LE
       ]);
       final c = QosCtrl.fromBytes(data);
       expect(c.profile, 0);
       expect(c.phy, 2);
       expect(c.txPower, 3);
-      expect(c.interval, 80);
+      expect(c.tpMode, 1);
       expect(c.creditAlarm, 5);
       expect(c.creditCtrl, 3);
       expect(c.creditRs485, 2);
-      expect(c.flags, 0);
+      expect(c.interval, 80);
     });
   });
 
   group('QosCtrl.toBytes()', () {
-    test('given valid QosCtrl when toBytes then produces 9-byte payload matching fromBytes layout', () {
+    test('given valid QosCtrl when toBytes then produces 9-byte payload matching ble_api.yaml', () {
       final ctrl = QosCtrl(
         profile: 1,
         phy: 2,
         txPower: -4,
-        interval: 80,
+        tpMode: 1,
         creditAlarm: 5,
         creditCtrl: 3,
         creditRs485: 2,
-        flags: 0,
+        interval: 80,
       );
       final bytes = ctrl.toBytes();
       expect(bytes.length, QosCtrl.size);
@@ -105,24 +106,24 @@ void main() {
       expect(decoded.profile, 1);
       expect(decoded.phy, 2);
       expect(decoded.txPower, -4);
+      expect(decoded.tpMode, 1);
       expect(decoded.interval, 80);
       expect(decoded.creditAlarm, 5);
       expect(decoded.creditCtrl, 3);
       expect(decoded.creditRs485, 2);
-      expect(decoded.flags, 0);
     });
 
     test('given QosCtrl with negative txPower when toBytes then encodes int8 correctly', () {
       final ctrl = QosCtrl(
-        profile: 0, phy: 1, txPower: -20, interval: 160,
-        creditAlarm: 0, creditCtrl: 0, creditRs485: 0, flags: 0xFF,
+        profile: 0, phy: 1, txPower: -20, tpMode: 1, interval: 160,
+        creditAlarm: 0, creditCtrl: 0, creditRs485: 0,
       );
       final bytes = ctrl.toBytes();
       expect(bytes.length, QosCtrl.size);
       final decoded = QosCtrl.fromBytes(bytes);
       expect(decoded.txPower, -20);
       expect(decoded.interval, 160);
-      expect(decoded.flags, 0xFF);
+      expect(decoded.tpMode, 1);
     });
   });
 

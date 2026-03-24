@@ -8,6 +8,7 @@ import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
 import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/gatt/gatt_uuids.dart';
 import 'package:ble_qos_app/core/providers/auth_provider.dart';
+import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// QoS profile definitions matching firmware enum.
@@ -51,15 +52,16 @@ class _ControlTabState extends ConsumerState<ControlTab> {
 
     setState(() => _writing = true);
 
+    // Read current device state to preserve phy/txPower/interval — only change profile
+    final currentStatus = ref.read(statusStreamProvider).valueOrNull;
     final ctrl = QosCtrl(
       profile: _selectedProfile,
-      phy: 2,
-      txPower: 0,
-      interval: 80,
+      phy: currentStatus?.phy ?? 1,
+      txPower: currentStatus?.txPower ?? 0,
       creditAlarm: 0,
       creditCtrl: 0,
       creditRs485: 0,
-      flags: 0,
+      interval: currentStatus?.interval ?? 24,
     );
 
     try {
