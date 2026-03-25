@@ -41,15 +41,19 @@ class ScanDeviceTile extends StatelessWidget {
               const SizedBox(width: 8),
               SizedBox(
                 height: 32,
-                child: ElevatedButton(
-                  onPressed: onConnect,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    textStyle: const TextStyle(fontSize: 12),
+                child: Semantics(
+                  identifier: 'connect-${device.id}',
+                  label: 'Connect ${device.displayName}',
+                  child: ElevatedButton(
+                    onPressed: onConnect,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
+                    child: const Text('Connect'),
                   ),
-                  child: const Text('Connect'),
                 ),
               ),
             ],

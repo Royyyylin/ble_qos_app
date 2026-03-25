@@ -192,9 +192,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
               tooltip: _scanning ? 'Stop scan' : 'Start scan',
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.push('/settings'),
+          Semantics(
+            identifier: 'settings-btn',
+            label: 'Settings',
+            child: IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => context.push('/settings'),
+            ),
           ),
         ],
       ),
