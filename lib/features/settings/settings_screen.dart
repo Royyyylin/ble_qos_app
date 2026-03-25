@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/auth/pin_storage.dart';
 import '../../core/ble/ble_connector.dart';
+import '../../core/data/audit_logger.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/device_provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -50,6 +51,7 @@ class SettingsScreen extends ConsumerWidget {
               onValidated: (pin) {
                 session.elevate(AuthRole.maintenance, pin: pin);
                 PinStorage.saveMaintenancePin(pin);
+                ref.read(auditLoggerProvider).log('elevate_maintenance');
               },
             ),
           ),
@@ -66,6 +68,7 @@ class SettingsScreen extends ConsumerWidget {
               onValidated: (pin) {
                 session.elevate(AuthRole.engineer, pin: pin);
                 PinStorage.saveEngineerPin(pin);
+                ref.read(auditLoggerProvider).log('elevate_engineer');
               },
             ),
           ),
@@ -93,6 +96,7 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.bluetooth_disabled, color: Colors.red),
               title: const Text('Disconnect'),
               onTap: () {
+                ref.read(auditLoggerProvider).log('disconnect', targetDevice: device.name);
                 ref.read(bleConnectorProvider).disconnect();
                 ref.read(connectedDeviceProvider.notifier).disconnect();
                 session.demote();
@@ -137,6 +141,8 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () {
               final pin = controller.text;
               if (pin.length == maxLength) {
+                // Phase 1: accept any PIN of correct length
+                // Phase 2: validate via PinValidator against stored hash
                 Navigator.pop(ctx);
                 onValidated(pin);
               }
