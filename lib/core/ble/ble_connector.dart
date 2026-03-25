@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../error/ble_error.dart';
 import '../gatt/gatt_peer_role.dart';
 import '../gatt/gatt_uuids.dart';
 import '../identity/device_identity_service.dart';
@@ -25,6 +26,10 @@ class BleConnector {
   bool _intentionalDisconnect = false;
   BleReconnect? _reconnect;
   DeviceIdentityService? _identityService;
+  BleError? _lastError;
+
+  /// Last connection error (classified). Null if no error.
+  BleError? get lastError => _lastError;
 
   /// Inject DeviceIdentityService for StableId→MAC resolution.
   set identityService(DeviceIdentityService? service) =>
@@ -81,9 +86,10 @@ class BleConnector {
           } catch (e) {
             debugPrint('[BLE_CONN] error during connect: $e');
             _services = null;
+            _lastError = BleError(BleError.classify(e), detail: '$e', cause: e);
             _setState(BleConnectionState.error);
             await _device?.disconnect();
-            if (!completer.isCompleted) completer.completeError(e);
+            if (!completer.isCompleted) completer.completeError(_lastError!);
           }
         } else if (connState == BluetoothConnectionState.disconnected) {
           debugPrint('[BLE_CONN] disconnected event, hasConnected=$hasConnected, state=$_state');
