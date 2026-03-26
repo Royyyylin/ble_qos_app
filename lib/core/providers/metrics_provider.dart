@@ -98,7 +98,7 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
       final data = await gatt.read(GattUuids.status);
       if (data.length >= QosStatus.indexedSize) {
         final status = QosStatus.parse(data);
-        // Only update if non-zero (firmware returns 0 between real updates)
+        debugPrint('[METRICS] STATUS poll: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} len=${data.length}');
         if (status.rssi != 0 || status.pdr != 0 || status.latency != 0) {
           lastValid = status;
         }
