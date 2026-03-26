@@ -11,17 +11,21 @@ class ScanDeviceTile extends StatelessWidget {
     super.key,
     required this.device,
     required this.onConnect,
+    this.onLongPress,
   });
 
   final ScannedDevice device;
   final VoidCallback onConnect;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label:
           '${device.displayName}, ${device.roleLabel}, ${device.smoothedRssi.round()} dBm, ${device.status.name}',
-      child: Card(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: ListTile(
           leading: _statusIndicator(),
@@ -59,6 +63,7 @@ class ScanDeviceTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
