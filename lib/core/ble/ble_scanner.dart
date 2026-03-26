@@ -48,11 +48,17 @@ class BleScanner {
   List<ScannedDevice> get currentDevices => _devices.values.toList();
   bool get isScanning => _scanning;
 
+  /// Alias cache loaded from DeviceIdentityService at start().
+  var _aliasCache = <String, String>{};
+
   void start({bool dutyCycle = false}) {
     _devices.clear();
     _scanSub?.cancel();
     _statusTimer?.cancel();
     _dutyCycleTimer?.cancel();
+
+    // Load persisted aliases so Scanner shows them while not connected
+    _aliasCache = _identityService?.getAllAliases() ?? {};
 
     _scanSub = FlutterBluePlus.onScanResults.listen(_onScanResults);
 
@@ -108,7 +114,7 @@ class BleScanner {
         status: DeviceStatus.online,
         lastSeen: now,
         mfgData: mfgData ?? existing?.mfgData,
-        alias: existing?.alias,
+        alias: existing?.alias ?? _aliasCache[stableId],
         mac: mac,
       );
     }
