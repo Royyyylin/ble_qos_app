@@ -19,7 +19,8 @@
 - [x] BleError 7-type taxonomy + classified error screen
 - [x] BLE lifecycle: 2-stage TTL + disconnect on leave/background
 - [x] Maestro 安裝 + Semantics identifiers
-- [x] 237 tests, 0 analyze warnings
+- [x] 241 tests, 0 analyze warnings
+- [x] Device Alias: DB schema v3 + identity service + GATT UUID + rename dialog + HTML prototype
 
 ## 下一步
 

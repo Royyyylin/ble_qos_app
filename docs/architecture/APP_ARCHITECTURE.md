@@ -44,7 +44,13 @@
 | 5 | Auth：session-based / GW_CFG Role-1 唯讀 / 5 分鐘 | ✅ | [foundations/05-auth-session.md](foundations/05-auth-session.md) |
 | 6 | 相容矩陣：code-embedded + graceful degrade | ✅ | [foundations/06-compat-matrix.md](foundations/06-compat-matrix.md) |
 
-**6 項基石全部定案**。下一步：spec 修訂 + Flutter 實作。
+**6 項基石全部定案**。
+
+### 功能追蹤
+
+| Feature | 狀態 | 說明 |
+|---------|------|------|
+| Device Alias (Rename) | ✅ App 端完成 | GATT `DEVICE_ALIAS` (0x22) read/write + local DB cache + long-press rename dialog. 韌體端待實作 characteristic。 |
 
 ---
 
