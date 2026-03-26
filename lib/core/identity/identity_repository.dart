@@ -14,4 +14,13 @@ abstract class IdentityRepository {
 
   /// Get all persisted identity mappings (for in-memory cache warm-up).
   Future<List<DeviceIdentity>> getAll();
+
+  /// Set user-assigned alias for a device. Pass null to clear.
+  Future<void> setAlias(String stableId, String? alias);
+
+  /// Get alias for a device. Returns null if not set.
+  Future<String?> getAlias(String stableId);
+
+  /// Get all aliases as stableId→alias map (for cache warm-up).
+  Future<Map<String, String>> getAllAliases();
 }

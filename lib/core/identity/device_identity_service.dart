@@ -15,9 +15,12 @@ class DeviceIdentityService {
   /// Reverse cache: StableId → MAC
   final _stableIdToMac = <String, String>{};
 
+  /// Alias cache: StableId → user-assigned alias
+  final _aliases = <String, String>{};
+
   DeviceIdentityService(this._repository);
 
-  /// Load all persisted mappings into in-memory cache.
+  /// Load all persisted mappings + aliases into in-memory cache.
   /// Must be called once at app startup before scan begins.
   Future<void> initialize() async {
     final all = await _repository.getAll();
@@ -25,6 +28,8 @@ class DeviceIdentityService {
       _macToStableId[identity.mac] = identity.stableId;
       _stableIdToMac[identity.stableId] = identity.mac;
     }
+    final aliases = await _repository.getAllAliases();
+    _aliases.addAll(aliases);
   }
 
   /// Async resolve: lookup or generate+persist a StableId for [mac].
@@ -58,6 +63,22 @@ class DeviceIdentityService {
   /// Resolve StableId back to MAC for BLE operations.
   /// Returns null if unknown.
   String? resolveToMac(String stableId) => _stableIdToMac[stableId];
+
+  /// Set user-assigned alias for a device. Pass null to clear.
+  Future<void> setAlias(String stableId, String? alias) async {
+    if (alias != null && alias.isNotEmpty) {
+      _aliases[stableId] = alias;
+    } else {
+      _aliases.remove(stableId);
+    }
+    await _repository.setAlias(stableId, alias);
+  }
+
+  /// Get alias for a device from cache. Returns null if not set.
+  String? getAlias(String stableId) => _aliases[stableId];
+
+  /// Get all aliases as stableId→alias map (for scanner cache warm-up).
+  Map<String, String> getAllAliases() => Map.unmodifiable(_aliases);
 
   /// Generate a UUIDv4 string.
   static String _generateUuidV4() {

@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 
 import '../data/database.dart' hide DeviceIdentity;
 import 'device_identity.dart';
@@ -46,5 +47,30 @@ class DriftIdentityRepository implements IdentityRepository {
               createdAt: DateTime.fromMillisecondsSinceEpoch(r.createdAt),
             ))
         .toList();
+  }
+
+  @override
+  Future<void> setAlias(String stableId, String? alias) async {
+    await (_db.update(_db.deviceIdentities)
+          ..where((t) => t.stableId.equals(stableId)))
+        .write(DeviceIdentitiesCompanion(
+      alias: Value(alias),
+    ));
+  }
+
+  @override
+  Future<String?> getAlias(String stableId) async {
+    final row = await (_db.select(_db.deviceIdentities)
+          ..where((t) => t.stableId.equals(stableId)))
+        .getSingleOrNull();
+    return row?.alias;
+  }
+
+  @override
+  Future<Map<String, String>> getAllAliases() async {
+    final rows = await (_db.select(_db.deviceIdentities)
+          ..where((t) => t.alias.isNotNull()))
+        .get();
+    return {for (final r in rows) r.stableId: r.alias!};
   }
 }
