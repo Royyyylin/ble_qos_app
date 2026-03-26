@@ -13,6 +13,7 @@ import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
 import 'ed_roster_provider.dart';
+import 'identity_provider.dart';
 
 /// Parse [data] with [parser], accepting data.length >= [expectedSize].
 /// Returns null if data is too short.
@@ -216,6 +217,32 @@ final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
     }
   } catch (e) {
     debugPrint('[DEVICE] FW_VERSION read failed: $e');
+  }
+  return null;
+});
+
+/// Read DEVICE_ALIAS from GATT after connection. Syncs to local DB cache.
+/// Returns the alias string, or null if not set on device.
+final deviceAliasProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return null;
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.deviceAlias);
+    final alias = String.fromCharCodes(data).trim();
+    debugPrint('[DEVICE] ALIAS: "${alias.isEmpty ? "(empty)" : alias}"');
+
+    if (alias.isNotEmpty) {
+      // Sync to local DB so Scanner can display it while disconnected
+      final identityService = ref.read(identityServiceProvider);
+      await identityService.setAlias(device.id, alias);
+      return alias;
+    }
+  } catch (e) {
+    debugPrint('[DEVICE] ALIAS read failed (char may not exist yet): $e');
   }
   return null;
 });

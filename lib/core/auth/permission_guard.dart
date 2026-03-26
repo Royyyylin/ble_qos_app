@@ -8,7 +8,7 @@ enum GattAction {
   // Handshake (all roles)
   peerRole,
   // Control (maintenance+)
-  ctrl, gwCfg, ping, cmdReboot,
+  ctrl, gwCfg, ping, cmdReboot, deviceAlias,
   // Admin (engineer only)
   mode, role, engUnlock, engPinSet,
 }
@@ -24,7 +24,7 @@ class PermissionGuard {
       GattAction.peerRole => true,
       // Control actions — maintenance+ (spec §3.2)
       GattAction.ctrl || GattAction.gwCfg || GattAction.ping || GattAction.cmdReboot
-          || GattAction.role =>
+          || GattAction.role || GattAction.deviceAlias =>
         role == AuthRole.maintenance || role == AuthRole.engineer,
       // Admin actions — engineer only (spec §3.2)
       GattAction.mode || GattAction.engUnlock || GattAction.engPinSet =>
