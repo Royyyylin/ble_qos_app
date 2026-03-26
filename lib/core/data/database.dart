@@ -13,7 +13,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -22,6 +22,10 @@ class AppDatabase extends _$AppDatabase {
         // Schema v2: add DeviceIdentities table + mac column to Devices
         await migrator.createTable(deviceIdentities);
         await migrator.addColumn(devices, devices.mac);
+      }
+      if (from < 3) {
+        // Schema v3: add alias column to DeviceIdentities
+        await migrator.addColumn(deviceIdentities, deviceIdentities.alias);
       }
     },
   );

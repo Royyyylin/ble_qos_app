@@ -8,6 +8,9 @@ class DeviceIdentities extends Table {
   /// Platform BLE remote identifier (MAC on Android, UUID on iOS).
   TextColumn get mac => text().unique()();
 
+  /// User-assigned alias (stored locally, synced from GATT DEVICE_ALIAS).
+  TextColumn get alias => text().nullable()();
+
   /// Timestamp when identity was first assigned (epoch ms).
   IntColumn get createdAt => integer()();
 
