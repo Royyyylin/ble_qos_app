@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Roster — Per-ED Metrics (方案 B 列表式)</title>
+<style>
+  :root {
+    --bg: #0A0E1A; --surface: #141B2D; --surface-var: #1E2740;
+    --primary: #00E5FF; --secondary: #7C4DFF;
+    --warning: #FF6B35; --error: #FF1744; --success: #00E676;
+    --stale: #546E7A; --text-primary: #E0E0E0; --text-secondary: #90A4AE;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    max-width: 420px; margin: 0 auto; min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  .appbar {
+    background: var(--surface); padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--surface-var);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .back-btn {
+    background: none; border: none; color: var(--text-primary);
+    font-size: 20px; cursor: pointer; padding: 4px;
+  }
+  .appbar-title { flex: 1; }
+  .appbar-title .name { font-size: 16px; font-weight: 600; }
+  .appbar-title .sub { font-size: 11px; color: var(--text-secondary); }
+  .conn-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--success); box-shadow: 0 0 6px var(--success);
+  }
+
+  .section-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px 4px;
+  }
+  .section-hdr .title { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+  .section-hdr .slot-count { font-size: 12px; color: var(--text-secondary); }
+  .section-hdr .actions { display: flex; gap: 8px; }
+  .section-hdr button {
+    background: none; border: none; color: var(--primary);
+    font-size: 18px; cursor: pointer;
+  }
+
+  .ed-card {
+    margin: 3px 10px; background: var(--surface); border-radius: var(--radius);
+    padding: 8px 10px; border-left: 3px solid transparent;
+  }
+  .ed-card.online { border-left-color: var(--success); }
+  .ed-card.registered { border-left-color: var(--warning); }
+  .ed-card.empty { border-left-color: var(--stale); opacity: 0.4; }
+
+  .ed-top {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 2px;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.registered { background: var(--warning); }
+  .status-dot.empty { border: 2px solid var(--stale); background: transparent; }
+  .ed-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .badge.online { background: rgba(0,230,118,0.15); color: var(--success); }
+  .badge.registered { background: rgba(255,107,53,0.15); color: var(--warning); }
+  .badge.empty { background: rgba(84,110,122,0.15); color: var(--stale); }
+
+  .ed-mac {
+    font-size: 10px; color: var(--text-secondary);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    margin-bottom: 4px;
+  }
+
+  /* 4 columns: fit all key metrics in one row */
+  .metrics-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px;
+    margin-top: 3px;
+  }
+  .metrics-row.row3 { grid-template-columns: 1fr 1fr 1fr; }
+  .m-item { background: var(--surface-var); border-radius: 6px; padding: 4px 6px; }
+  .m-label { font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .m-val-row { display: flex; align-items: baseline; gap: 3px; }
+  .m-val { font-size: 22px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1.1; }
+  .m-unit { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+
+  .ed-actions {
+    display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end;
+  }
+  .action-btn {
+    background: none; border: 1px solid var(--surface-var);
+    color: var(--text-secondary); border-radius: 6px;
+    padding: 4px 10px; font-size: 11px; cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .action-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .action-btn.danger:hover { border-color: var(--error); color: var(--error); }
+
+  .disc-card {
+    margin: 6px 12px; background: var(--surface); border-radius: var(--radius);
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    border-left: 3px solid var(--surface-var);
+  }
+  .disc-info { flex: 1; }
+  .disc-name { font-size: 15px; font-weight: 500; }
+  .disc-meta { font-size: 12px; color: var(--text-secondary); }
+  .add-btn {
+    background: var(--primary); color: #000; border: none;
+    border-radius: 8px; padding: 6px 12px; font-size: 12px;
+    font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <button class="back-btn">&larr;</button>
+  <div class="appbar-title">
+    <div class="name">GW-QoS-A1</div>
+    <div class="sub">FW 1.2.0 &middot; Up 2h 15m &middot; MAX_ED=8</div>
+  </div>
+  <div class="conn-dot" title="Connected"></div>
+</div>
+
+<div class="section-hdr">
+  <div>
+    <span class="title">Firmware Roster</span>
+    <span class="slot-count"> (6/8 slots)</span>
+  </div>
+  <div class="actions">
+    <button title="Connect All Offline">&#128279;</button>
+    <button title="Refresh">&#8635;</button>
+  </div>
+</div>
+
+<div id="rosterList"></div>
+
+<div class="section-hdr" style="margin-top: 8px;">
+  <div>
+    <span class="title">Discovered EDs</span>
+    <span class="slot-count"> (2)</span>
+  </div>
+</div>
+<div id="discoveredList"></div>
+
+<script>
+var ROSTER = [
+  { slot: 0, mac: 'AA:BB:CC:DD:01:01', name: 'ED-Sensor-01', state: 'online',
+    rssi: -52, pdr: 99.5, lat: 12, jit: 8, phy: '2M', tx: 4, tp: 0 },
+  { slot: 1, mac: 'AA:BB:CC:DD:02:02', name: 'ED-Sensor-02', state: 'online',
+    rssi: -67, pdr: 98.2, lat: 18, jit: 11, phy: '1M', tx: 0, tp: 0 },
+  { slot: 2, mac: 'AA:BB:CC:DD:03:03', name: 'ED-Actuator-01', state: 'online',
+    rssi: -78, pdr: 95.1, lat: 25, jit: 15, phy: '1M', tx: -4, tp: 0 },
+  { slot: 3, mac: 'AA:BB:CC:DD:04:04', name: 'ED-Monitor-01', state: 'online',
+    rssi: -55, pdr: 99.8, lat: 10, jit: 5, phy: '2M', tx: 4, tp: 0 },
+  { slot: 4, mac: 'AA:BB:CC:DD:05:05', name: 'ED-Sensor-03', state: 'registered',
+    rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 5, mac: 'AA:BB:CC:DD:06:06', name: 'ED-Sensor-04', state: 'registered',
+    rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 6, mac: null, name: null, state: 'empty' },
+  { slot: 7, mac: null, name: null, state: 'empty' },
+];
+
+var DISCOVERED = [
+  { name: 'ED-Sensor-04', rssi: -71, mac: '11:22:33:44:55:66' },
+  { name: 'ED-Monitor-02', rssi: -83, mac: '11:22:33:44:77:88' },
+];
+
+function colorForRssi(v) { if (v == null) return 'var(--text-secondary)'; if (v > -60) return 'var(--success)'; if (v > -80) return 'var(--warning)'; return 'var(--error)'; }
+function colorForPdr(v) { if (v == null) return 'var(--text-secondary)'; if (v >= 99) return 'var(--success)'; if (v >= 95) return 'var(--warning)'; return 'var(--error)'; }
+function colorForLat(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 15) return 'var(--success)'; if (v <= 30) return 'var(--warning)'; return 'var(--error)'; }
+function colorForJit(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 10) return 'var(--success)'; if (v <= 20) return 'var(--warning)'; return 'var(--error)'; }
+function fmt(v) { return v != null ? String(v) : '--'; }
+
+function ce(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function txt(tag, cls, text, color) {
+  var e = ce(tag, cls);
+  e.appendChild(document.createTextNode(text));
+  if (color) e.style.color = color;
+  return e;
+}
+
+function metricItem(label, value, unit, color) {
+  var item = ce('div', 'm-item');
+  item.appendChild(txt('div', 'm-label', label));
+  var row = ce('div', 'm-val-row');
+  row.appendChild(txt('span', 'm-val', value, color));
+  if (unit) row.appendChild(txt('span', 'm-unit', unit));
+  item.appendChild(row);
+  return item;
+}
+
+function buildCard(ed) {
+  var card = ce('div', 'ed-card ' + ed.state);
+
+  if (ed.state === 'empty') {
+    var top = ce('div', 'ed-top');
+    top.appendChild(ce('div', 'status-dot empty'));
+    top.appendChild(txt('div', 'ed-name', '(empty)', 'var(--text-secondary)'));
+    top.appendChild(txt('span', 'badge empty', 'Slot ' + ed.slot));
+    card.appendChild(top);
+    return card;
+  }
+
+  var top = ce('div', 'ed-top');
+  top.appendChild(ce('div', 'status-dot ' + ed.state));
+  top.appendChild(txt('div', 'ed-name', ed.name));
+  top.appendChild(txt('span', 'badge ' + ed.state, ed.state === 'online' ? 'Online' : 'Registered'));
+  card.appendChild(top);
+
+  card.appendChild(txt('div', 'ed-mac', ed.mac + ' \u00B7 Slot ' + ed.slot));
+
+  // Row 1: 4 key metrics
+  var row1 = ce('div', 'metrics-row');
+  row1.appendChild(metricItem('RSSI', fmt(ed.rssi), 'dBm', colorForRssi(ed.rssi)));
+  row1.appendChild(metricItem('PDR', fmt(ed.pdr), '%', colorForPdr(ed.pdr)));
+  row1.appendChild(metricItem('Lat', fmt(ed.lat), 'ms', colorForLat(ed.lat)));
+  row1.appendChild(metricItem('Jit', fmt(ed.jit), 'ms', colorForJit(ed.jit)));
+  card.appendChild(row1);
+
+  // Row 2: 3 config/info metrics
+  var row2 = ce('div', 'metrics-row row3');
+  row2.appendChild(metricItem('PHY', fmt(ed.phy), '', ed.phy ? 'var(--text-primary)' : 'var(--text-secondary)'));
+  row2.appendChild(metricItem('TX', fmt(ed.tx), 'dBm', ed.tx != null ? 'var(--text-primary)' : 'var(--text-secondary)'));
+  var tpVal = ed.tp > 0 ? String(ed.tp) : 'N/A';
+  row2.appendChild(metricItem('TP', tpVal, ed.tp > 0 ? 'B/s' : '', 'var(--text-secondary)'));
+  card.appendChild(row2);
+
+  var actions = ce('div', 'ed-actions');
+  if (ed.state === 'registered') {
+    var connBtn = txt('button', 'action-btn', '\u{1F517} Connect');
+    connBtn.addEventListener('click', function() { alert('CMD_V2: CONNECT_ED ' + ed.mac); });
+    actions.appendChild(connBtn);
+  }
+  var rmBtn = txt('button', 'action-btn danger', '\u274C Remove');
+  rmBtn.addEventListener('click', function() {
+    if (confirm('Remove ' + ed.name + ' from roster?')) alert('CMD_V2: ROSTER_REMOVE slot ' + ed.slot);
+  });
+  actions.appendChild(rmBtn);
+  card.appendChild(actions);
+
+  return card;
+}
+
+function buildDisc(d) {
+  var card = ce('div', 'disc-card');
+  var info = ce('div', 'disc-info');
+  info.appendChild(txt('div', 'disc-name', d.name));
+  info.appendChild(txt('div', 'disc-meta', d.rssi + ' dBm \u00B7 ' + d.mac));
+  card.appendChild(info);
+  var btn = txt('button', 'add-btn', '+ Add');
+  btn.addEventListener('click', function() { alert('CMD_V2: ROSTER_ADD ' + d.mac); });
+  card.appendChild(btn);
+  return card;
+}
+
+var list = document.getElementById('rosterList');
+ROSTER.forEach(function(ed) { list.appendChild(buildCard(ed)); });
+
+var disc = document.getElementById('discoveredList');
+DISCOVERED.forEach(function(d) { disc.appendChild(buildDisc(d)); });
+</script>
+</body>
+</html>
