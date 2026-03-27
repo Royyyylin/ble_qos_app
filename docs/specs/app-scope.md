@@ -26,6 +26,16 @@ App 必須負責：UI/UX 所有畫面（Scanner, Dashboard, Roster, HA, Control,
 
 App **不得**：定義跨系統 canonical identity、維護 global assignment truth、承擔 telemetry authoritative ingest、定義 Central auth policy、把 UI state 當作 runtime truth。10 條反模式見 `02-non-goals.md`。
 
+## Profile-Aware Telemetry Consumption
+
+App 必須支援 **profile-aware** telemetry/event consumption：
+
+- **P0**（Long-range survival）：欄位極稀疏，只有最小 identity + 核心 measurement。App 不得把缺欄位視為錯誤
+- **P1**（Normal operation）：欄位較完整，dedup/ordering 較可靠
+- App **不得**假設所有 payload 都有完整 `boot_id` / `msg_seq` / QoS fields / timestamp
+- P0 缺少的欄位在 UI 上應顯示為 `--` / `N/A` / sparse，不得推導出錯誤的 authoritative 結論
+- 事件時間排序應保守；P0 來源不具備強一致 timeline 能力
+
 ## Identity 摘要
 
 - GW: `gw:{gw_mac}` — ED: `ed:{ed_mac}` — **定案，不含 GW MAC**

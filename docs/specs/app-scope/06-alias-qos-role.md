@@ -54,19 +54,32 @@ User input → local pending op → optimistic UI update
 - 7 項 per-ED：RSSI, PDR, Latency, Jitter, PHY, TX Power, Throughput
 - 數值 + 單位並排（`-52 dBm`、`99.5 %`、`12 ms`）
 - 色彩分級：綠=good、橘=warning、紅=bad
-- `--` = 無資料（ED registered 但未 online）
+- `--` = 無資料（ED registered 但未 online，或 P0 sparse profile 缺欄位）
 - `N/A` = 非活躍模式（Throughput in non-TP mode）
 - 韌體回 0 時保留 last valid
+
+### Profile-Aware 顯示規則
+
+| Profile | 顯示策略 | 排序可靠度 |
+|---------|---------|-----------|
+| **P0** sparse | 只顯示有值的欄位，缺值顯示 `--`，不推導 authoritative 結論 | 近似排序，不可信賴精確 timeline |
+| **P1** normal | 完整顯示 7 項 metrics + 色彩分級 | 較可靠（有 seq / full fields） |
+
+- App **不得**因 P0 缺欄位就將裝置標為 error / offline / unhealthy
+- App 在內部 state 上必須知道目前資料來自哪個 profile
+- `ts_app_observed` 仍只是 observed time，對 P0 尤其不可當 authoritative event time
 
 ### Health 狀態
 
 - Online / Registered / Empty / Orphaned 的畫面語意
 - 區分 device-side（firmware）、gateway-side（GW↔ED link）、central-sync-side 來源
+- **P0 sparse payload 不得被誤判為 degraded / down** — 它只是欄位稀疏，不是健康狀態異常
 
 ### Failover 呈現
 
 - 顯示 from/to gateway、reason、最近切換時間
 - 顯示 切換中 / 穩定中 / 已恢復 等狀態
+- **P0 來源的 failover event 時間排序應標注為近似**
 - **App 可視覺化 failover，不得自行決定最終 authoritative failover 結果**
 
 ---

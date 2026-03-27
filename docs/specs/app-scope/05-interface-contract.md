@@ -13,7 +13,9 @@
 - alias / name / label metadata + revision
 - role / permission metadata
 
-### 2. Firmware runtime status（via GATT）
+### 2. Firmware runtime status（via GATT, profile-aware）
+
+**注意：** Firmware payload 有 P0/P1 兩種 profile。P0 欄位極稀疏，App 不得假設所有 GATT data 都有完整欄位。缺值欄位 nullable，不視為錯誤。
 
 | Characteristic | Size | 方式 | 內容 |
 |----------------|------|------|------|
