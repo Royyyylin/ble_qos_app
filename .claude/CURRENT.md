@@ -1,6 +1,6 @@
 # BLE QoS App — Current State
 
-**最後更新：** 2026-03-27
+**最後更新：** 2026-03-28
 
 ## 架構決策 — 6/6 全部定案 + 架構對齊完成
 
@@ -26,11 +26,11 @@
 
 ## 下一步
 
-1. 實機驗證 persistent DB
-2. HTML prototype → Flutter 遷移（Scanner + Device Screen）
-3. Central API 認證方式確定後，App sync client 實作
-4. Maestro YAML flow 取代 adb tap
-5. PinValidator 整合（Phase 2）
+1. App local models / state skeleton（依 GPT 指令稿）
+2. PR merge: `feat/prototype-roster-dashboard-update` → main
+3. HTML prototype → Flutter 遷移
+4. 實機驗證 persistent DB
+5. Central sync client 對接（等 Central A3 auth 完成後）
 
 ## Backlog
 
