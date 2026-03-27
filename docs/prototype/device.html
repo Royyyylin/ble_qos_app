@@ -80,31 +80,53 @@
   .tab-content { display: none; padding: 16px; min-height: 60vh; }
   .tab-content.active { display: block; }
 
-  /* === Dashboard Cards === */
-  .metric-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  }
-  .metric-card {
+  /* === Dashboard (GW Info) === */
+  .gw-info-card {
     background: var(--surface); border-radius: var(--radius);
-    padding: 14px; position: relative;
+    padding: 14px; margin-bottom: 8px;
   }
-  .metric-card .label {
-    font-size: 11px; color: var(--text-secondary);
-    text-transform: uppercase; letter-spacing: 0.5px;
+  .gw-info-card h3 { font-size: 13px; color: var(--primary); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gw-info-row {
+    display: flex; justify-content: space-between; padding: 6px 0;
+    border-bottom: 1px solid var(--surface-var);
   }
-  .metric-card .value {
-    font-size: 28px; font-weight: 700;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    margin: 4px 0 2px;
-  }
-  .metric-card .unit { font-size: 12px; color: var(--text-secondary); }
-  .metric-card .info-btn {
-    position: absolute; top: 8px; right: 8px;
-    background: none; border: none; color: var(--text-secondary);
-    font-size: 14px; cursor: pointer;
-  }
+  .gw-info-row:last-child { border-bottom: none; }
+  .gw-info-row .gi-label { font-size: 13px; color: var(--text-secondary); }
+  .gw-info-row .gi-value { font-size: 13px; color: var(--text-primary); font-weight: 500; font-family: 'SF Mono', monospace; }
 
-  /* === Roster === */
+  /* === Roster (per-ED metrics) === */
+  .ed-card {
+    margin: 3px 0; background: var(--surface); border-radius: var(--radius);
+    padding: 8px 10px; border-left: 3px solid transparent;
+  }
+  .ed-card.online { border-left-color: var(--success); }
+  .ed-card.registered { border-left-color: var(--warning); }
+  .ed-card.empty { border-left-color: var(--stale); opacity: 0.4; }
+  .ed-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.registered { background: var(--warning); }
+  .status-dot.empty { border: 2px solid var(--stale); background: transparent; }
+  .ed-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .ed-mac { font-size: 10px; color: var(--text-secondary); font-family: 'SF Mono', monospace; margin-bottom: 4px; }
+  .metrics-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px; margin-top: 3px; }
+  .metrics-row.row3 { grid-template-columns: 1fr 1fr 1fr; }
+  .m-item { background: var(--surface-var); border-radius: 6px; padding: 4px 6px; }
+  .m-label { font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .m-val-row { display: flex; align-items: baseline; gap: 3px; }
+  .m-val { font-size: 22px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1.1; }
+  .m-unit { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .ed-actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
+  .action-btn { background: none; border: 1px solid var(--surface-var); color: var(--text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+  .action-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .action-btn.danger:hover { border-color: var(--error); color: var(--error); }
+  .disc-card { margin: 3px 0; background: var(--surface); border-radius: var(--radius); padding: 10px; display: flex; align-items: center; gap: 10px; border-left: 3px solid var(--surface-var); }
+  .disc-info { flex: 1; }
+  .disc-name { font-size: 14px; font-weight: 500; }
+  .disc-meta { font-size: 11px; color: var(--text-secondary); }
+  .add-btn { background: var(--primary); color: #000; border: none; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+
+  /* === Roster section header === */
   .section-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 0 8px; font-size: 13px; font-weight: 600;
@@ -277,112 +299,35 @@
 
 <!-- Tab Contents -->
 <div class="tab-content active" id="tab-dashboard">
-  <div class="metric-grid">
-    <div class="metric-card">
-      <div class="label">RSSI</div>
-      <div class="value" style="color: var(--success)">-52</div>
-      <div class="unit">dBm</div>
-      <button class="info-btn" title="Received Signal Strength">&#9432;</button>
-    </div>
-    <div class="metric-card">
-      <div class="label">PDR</div>
-      <div class="value" style="color: var(--success)">99.5</div>
-      <div class="unit">%</div>
-      <button class="info-btn" title="Packet Delivery Ratio">&#9432;</button>
-    </div>
-    <div class="metric-card">
-      <div class="label">Latency</div>
-      <div class="value" style="color: var(--success)">12</div>
-      <div class="unit">ms</div>
-      <button class="info-btn" title="Round-trip latency">&#9432;</button>
-    </div>
-    <div class="metric-card">
-      <div class="label">Jitter</div>
-      <div class="value" style="color: var(--warning)">8</div>
-      <div class="unit">ms</div>
-      <button class="info-btn" title="Latency variation">&#9432;</button>
-    </div>
-    <div class="metric-card">
-      <div class="label">PHY</div>
-      <div class="value" style="color: var(--text-primary)">2M</div>
-      <div class="unit"></div>
-      <button class="info-btn" title="Physical layer mode">&#9432;</button>
-    </div>
-    <div class="metric-card">
-      <div class="label">TX Power</div>
-      <div class="value" style="color: var(--text-primary)">4</div>
-      <div class="unit">dBm</div>
-      <button class="info-btn" title="Transmit power">&#9432;</button>
-    </div>
-    <div class="metric-card" style="grid-column: span 2;">
-      <div class="label">Throughput</div>
-      <div class="value" style="color: var(--text-secondary)">N/A</div>
-      <div class="unit">TP test not active</div>
-      <button class="info-btn" title="Data throughput">&#9432;</button>
-    </div>
+  <div class="gw-info-card">
+    <h3>Gateway Info</h3>
+    <div class="gw-info-row"><span class="gi-label">Device Name</span><span class="gi-value">GW-QoS-A1</span></div>
+    <div class="gw-info-row"><span class="gi-label">MAC</span><span class="gi-value">AA:BB:CC:DD:EE:FF</span></div>
+    <div class="gw-info-row"><span class="gi-label">FW Version</span><span class="gi-value">1.2.0+0</span></div>
+    <div class="gw-info-row"><span class="gi-label">Uptime</span><span class="gi-value">2h 15m</span></div>
+    <div class="gw-info-row"><span class="gi-label">Reset Count</span><span class="gi-value">3</span></div>
+    <div class="gw-info-row"><span class="gi-label">Role</span><span class="gi-value">Gateway</span></div>
+  </div>
+  <div class="gw-info-card">
+    <h3>Connection Summary</h3>
+    <div class="gw-info-row"><span class="gi-label">Online EDs</span><span class="gi-value" style="color:var(--success)">4 / 8</span></div>
+    <div class="gw-info-row"><span class="gi-label">Registered</span><span class="gi-value" style="color:var(--warning)">2</span></div>
+    <div class="gw-info-row"><span class="gi-label">Empty Slots</span><span class="gi-value">2</span></div>
+    <div class="gw-info-row"><span class="gi-label">MAX_ED</span><span class="gi-value">8</span></div>
+    <div class="gw-info-row"><span class="gi-label">HA Mode</span><span class="gi-value">Standalone</span></div>
+  </div>
+  <div class="gw-info-card">
+    <h3>GW_CFG</h3>
+    <div class="gw-info-row"><span class="gi-label">TP Mode</span><span class="gi-value">PRODUCT</span></div>
+    <div class="gw-info-row"><span class="gi-label">Phone Log</span><span class="gi-value">Enabled</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit Alarm</span><span class="gi-value">5 pps</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit Ctrl</span><span class="gi-value">10 pps</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit RS485</span><span class="gi-value">3 pps</span></div>
   </div>
 </div>
 
 <div class="tab-content" id="tab-roster">
-  <!-- Firmware Roster -->
-  <div class="section-header">
-    <span>Firmware Roster (4 slots)</span>
-    <div class="actions">
-      <button title="Connect All">&#128279;</button>
-      <button title="Refresh">&#8635;</button>
-    </div>
-  </div>
-  <div id="rosterList">
-    <div class="roster-entry">
-      <div class="entry-info">
-        <div class="mac">AA:BB:CC:DD:01:01</div>
-        <div class="slot-info">Slot 0 · Online</div>
-      </div>
-      <span class="state-badge online">Online</span>
-    </div>
-    <div class="roster-entry">
-      <div class="entry-info">
-        <div class="mac">AA:BB:CC:DD:02:02</div>
-        <div class="slot-info">Slot 1 · Registered</div>
-      </div>
-      <span class="state-badge registered">Registered</span>
-      <button class="icon-btn connect" title="Connect">&#128279;</button>
-      <button class="icon-btn remove" title="Remove">&#10060;</button>
-    </div>
-    <div class="roster-entry">
-      <div class="entry-info">
-        <div class="mac">AA:BB:CC:DD:03:03</div>
-        <div class="slot-info">Slot 2 · Online</div>
-      </div>
-      <span class="state-badge online">Online</span>
-    </div>
-    <div class="roster-entry">
-      <div class="entry-info">
-        <div class="mac">(empty)</div>
-        <div class="slot-info">Slot 3</div>
-      </div>
-      <span class="state-badge empty">Empty</span>
-    </div>
-  </div>
-
-  <!-- Discovered EDs -->
-  <div class="section-header" style="margin-top: 16px;">
-    <span>Discovered EDs (2)</span>
-  </div>
-  <div class="roster-entry">
-    <div class="entry-info">
-      <div class="entry-name">ED-Sensor-04</div>
-      <div class="slot-info">-67 dBm · Not in roster</div>
-    </div>
-    <button class="icon-btn add" title="Add to roster">&#10133;</button>
-  </div>
-  <div class="roster-entry">
-    <div class="entry-info">
-      <div class="entry-name">ED-Monitor-02</div>
-      <div class="slot-info">-81 dBm · Not in roster</div>
-    </div>
-    <button class="icon-btn add" title="Add to roster">&#10133;</button>
-  </div>
+  <div id="rosterContainer"></div>
 </div>
 
 <div class="tab-content" id="tab-ha">
@@ -688,7 +633,122 @@ document.querySelectorAll('.info-btn').forEach(function(btn) {
   btn.addEventListener('click', function() { alert(btn.title); });
 });
 
+// === Roster per-ED metrics ===
+var ROSTER_DATA = [
+  { slot: 0, mac: 'AA:BB:CC:DD:01:01', name: 'ED-Sensor-01', state: 'online', rssi: -52, pdr: 99.5, lat: 12, jit: 8, phy: '2M', tx: 4, tp: 0 },
+  { slot: 1, mac: 'AA:BB:CC:DD:02:02', name: 'ED-Sensor-02', state: 'online', rssi: -67, pdr: 98.2, lat: 18, jit: 11, phy: '1M', tx: 0, tp: 0 },
+  { slot: 2, mac: 'AA:BB:CC:DD:03:03', name: 'ED-Actuator-01', state: 'online', rssi: -78, pdr: 95.1, lat: 25, jit: 15, phy: '1M', tx: -4, tp: 0 },
+  { slot: 3, mac: 'AA:BB:CC:DD:04:04', name: 'ED-Monitor-01', state: 'online', rssi: -55, pdr: 99.8, lat: 10, jit: 5, phy: '2M', tx: 4, tp: 0 },
+  { slot: 4, mac: 'AA:BB:CC:DD:05:05', name: 'ED-Sensor-03', state: 'registered', rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 5, mac: 'AA:BB:CC:DD:06:06', name: 'ED-Sensor-04', state: 'registered', rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 6, mac: null, name: null, state: 'empty' },
+  { slot: 7, mac: null, name: null, state: 'empty' },
+];
+var DISC_DATA = [
+  { name: 'ED-Sensor-05', rssi: -71, mac: '11:22:33:44:55:66' },
+  { name: 'ED-Monitor-02', rssi: -83, mac: '11:22:33:44:77:88' },
+];
+
+function cRssi(v) { if (v == null) return 'var(--text-secondary)'; if (v > -60) return 'var(--success)'; if (v > -80) return 'var(--warning)'; return 'var(--error)'; }
+function cPdr(v) { if (v == null) return 'var(--text-secondary)'; if (v >= 99) return 'var(--success)'; if (v >= 95) return 'var(--warning)'; return 'var(--error)'; }
+function cLat(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 15) return 'var(--success)'; if (v <= 30) return 'var(--warning)'; return 'var(--error)'; }
+function cJit(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 10) return 'var(--success)'; if (v <= 20) return 'var(--warning)'; return 'var(--error)'; }
+function fv(v) { return v != null ? String(v) : '--'; }
+
+function ce(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function tx(tag, cls, text, color) { var e = ce(tag, cls); e.appendChild(document.createTextNode(text)); if (color) e.style.color = color; return e; }
+
+function mItem(label, value, unit, color) {
+  var item = ce('div', 'm-item');
+  item.appendChild(tx('div', 'm-label', label));
+  var row = ce('div', 'm-val-row');
+  row.appendChild(tx('span', 'm-val', value, color));
+  if (unit) row.appendChild(tx('span', 'm-unit', unit));
+  item.appendChild(row);
+  return item;
+}
+
+function buildRosterUI() {
+  var container = document.getElementById('rosterContainer');
+  container.textContent = '';
+
+  // Section header
+  var hdr = ce('div', 'section-header');
+  var onlineCount = ROSTER_DATA.filter(function(e) { return e.state === 'online'; }).length;
+  hdr.appendChild(tx('span', null, 'Firmware Roster (' + onlineCount + '/8 online)'));
+  container.appendChild(hdr);
+
+  ROSTER_DATA.forEach(function(ed) {
+    var card = ce('div', 'ed-card ' + ed.state);
+    if (ed.state === 'empty') {
+      var top = ce('div', 'ed-top');
+      top.appendChild(ce('div', 'status-dot empty'));
+      top.appendChild(tx('div', 'ed-name', '(empty)', 'var(--text-secondary)'));
+      top.appendChild(tx('span', 'badge ' + ed.state, 'Slot ' + ed.slot));
+      card.appendChild(top);
+      container.appendChild(card);
+      return;
+    }
+
+    var top = ce('div', 'ed-top');
+    top.appendChild(ce('div', 'status-dot ' + ed.state));
+    top.appendChild(tx('div', 'ed-name', ed.name));
+    var badgeLabel = ed.state === 'online' ? 'Online' : 'Registered';
+    top.appendChild(tx('span', 'badge ' + ed.state, badgeLabel));
+    card.appendChild(top);
+    card.appendChild(tx('div', 'ed-mac', ed.mac + ' \u00B7 Slot ' + ed.slot));
+
+    var row1 = ce('div', 'metrics-row');
+    row1.appendChild(mItem('RSSI', fv(ed.rssi), 'dBm', cRssi(ed.rssi)));
+    row1.appendChild(mItem('PDR', fv(ed.pdr), '%', cPdr(ed.pdr)));
+    row1.appendChild(mItem('Lat', fv(ed.lat), 'ms', cLat(ed.lat)));
+    row1.appendChild(mItem('Jit', fv(ed.jit), 'ms', cJit(ed.jit)));
+    card.appendChild(row1);
+
+    var row2 = ce('div', 'metrics-row row3');
+    row2.appendChild(mItem('PHY', fv(ed.phy), '', ed.phy ? 'var(--text-primary)' : 'var(--text-secondary)'));
+    row2.appendChild(mItem('TX', fv(ed.tx), 'dBm', ed.tx != null ? 'var(--text-primary)' : 'var(--text-secondary)'));
+    var tpVal = ed.tp > 0 ? String(ed.tp) : 'N/A';
+    row2.appendChild(mItem('TP', tpVal, ed.tp > 0 ? 'B/s' : '', 'var(--text-secondary)'));
+    card.appendChild(row2);
+
+    var actions = ce('div', 'ed-actions');
+    if (ed.state === 'registered') {
+      var connBtn = tx('button', 'action-btn', '\u{1F517} Connect');
+      connBtn.addEventListener('click', function() { alert('CMD_V2: CONNECT_ED ' + ed.mac); });
+      actions.appendChild(connBtn);
+    }
+    var rmBtn = tx('button', 'action-btn danger', '\u274C Remove');
+    rmBtn.addEventListener('click', function() {
+      if (confirm('Remove ' + ed.name + ' from roster?')) alert('CMD_V2: ROSTER_REMOVE slot ' + ed.slot);
+    });
+    actions.appendChild(rmBtn);
+    card.appendChild(actions);
+
+    container.appendChild(card);
+  });
+
+  // Discovered EDs
+  var discHdr = ce('div', 'section-header');
+  discHdr.style.marginTop = '8px';
+  discHdr.appendChild(tx('span', null, 'Discovered EDs (' + DISC_DATA.length + ')'));
+  container.appendChild(discHdr);
+
+  DISC_DATA.forEach(function(d) {
+    var card = ce('div', 'disc-card');
+    var info = ce('div', 'disc-info');
+    info.appendChild(tx('div', 'disc-name', d.name));
+    info.appendChild(tx('div', 'disc-meta', d.rssi + ' dBm \u00B7 ' + d.mac));
+    card.appendChild(info);
+    var btn = tx('button', 'add-btn', '+ Add');
+    btn.addEventListener('click', function() { alert('CMD_V2: ROSTER_ADD ' + d.mac); });
+    card.appendChild(btn);
+    container.appendChild(card);
+  });
+}
+
 // Init
+buildRosterUI();
 rebuildTabs();
 </script>
 </body>
