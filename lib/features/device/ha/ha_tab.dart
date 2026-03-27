@@ -92,6 +92,7 @@ class HaTab extends ConsumerWidget {
     );
   }
 
+
   Widget _buildFields(BuildContext context, HaHeartbeat? hb, {bool noHaPair = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
