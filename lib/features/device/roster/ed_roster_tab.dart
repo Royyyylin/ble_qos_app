@@ -1,10 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers/auth_provider.dart';
-
 import '../../../core/gatt/gatt_structs.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/ed_roster_provider.dart';
 import '../../../core/providers/metrics_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -109,6 +110,14 @@ class EdRosterTab extends ConsumerWidget {
                 ),
                 const Spacer(),
                 IconButton(
+                  icon: const Icon(Icons.link, size: 18, color: AppColors.primary),
+                  tooltip: 'Connect all EDs',
+                  onPressed: () => _connectAllEds(context, ref, rosterEntries),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
                   icon: const Icon(Icons.refresh, size: 18),
                   tooltip: 'Refresh roster',
                   onPressed: () => ref.invalidate(rosterListProvider),
@@ -122,6 +131,9 @@ class EdRosterTab extends ConsumerWidget {
             _RosterSlotTile(
               entry: entry,
               onRemove: () => _removeFromRoster(context, ref, entry),
+              onConnect: !entry.isOnline
+                  ? () => _connectEd(context, ref, entry)
+                  : null,
             ),
           const SizedBox(height: 16),
         ],
@@ -148,6 +160,64 @@ class EdRosterTab extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _connectEd(BuildContext context, WidgetRef ref, RosterEntry entry) async {
+    try {
+      final cmdService = ref.read(cmdV2ServiceProvider);
+      final pin = ref.read(authSessionProvider).lastPin;
+      final result = await cmdService.send(
+        CmdV2Opcode.connectEd,
+        payload: _macToPayload(entry.address, entry.addrType),
+        pin: pin,
+      );
+      if (!context.mounted) return;
+      if (result != null && result.isSuccess) {
+        ref.invalidate(rosterListProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connecting ${entry.address}...')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connect failed: ${result?.status ?? "timeout"}')),
+        );
+      }
+    } catch (e) {
+      debugPrint('[ROSTER] connectEd failed: $e');
+    }
+  }
+
+  Future<void> _connectAllEds(BuildContext context, WidgetRef ref, List<RosterEntry> entries) async {
+    final cmdService = ref.read(cmdV2ServiceProvider);
+    final pin = ref.read(authSessionProvider).lastPin;
+    int success = 0;
+    for (final entry in entries) {
+      if (!entry.isOnline) {
+        try {
+          final result = await cmdService.send(
+            CmdV2Opcode.connectEd,
+            payload: _macToPayload(entry.address, entry.addrType),
+            pin: pin,
+          );
+          if (result != null && result.isSuccess) success++;
+        } catch (_) {}
+      }
+    }
+    if (!context.mounted) return;
+    ref.invalidate(rosterListProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connecting $success EDs...')),
+    );
+  }
+
+  Uint8List _macToPayload(String mac, int addrType) {
+    final parts = mac.split(':');
+    final payload = Uint8List(7);
+    payload[0] = addrType;
+    for (int i = 0; i < 6; i++) {
+      payload[1 + (5 - i)] = int.parse(parts[i], radix: 16);
+    }
+    return payload;
   }
 
   Future<void> _addToRoster(BuildContext context, WidgetRef ref, String macAddress) async {
@@ -215,8 +285,9 @@ class EdRosterTab extends ConsumerWidget {
 class _RosterSlotTile extends StatelessWidget {
   final RosterEntry entry;
   final VoidCallback? onRemove;
+  final VoidCallback? onConnect;
 
-  const _RosterSlotTile({required this.entry, this.onRemove});
+  const _RosterSlotTile({required this.entry, this.onRemove, this.onConnect});
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +315,17 @@ class _RosterSlotTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (onConnect != null) ...[
+              IconButton(
+                icon: const Icon(Icons.link, size: 20),
+                color: AppColors.primary,
+                tooltip: 'Connect ED',
+                onPressed: onConnect,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+            ],
             _stateBadge(entry),
             if (onRemove != null) ...[
               const SizedBox(width: 8),

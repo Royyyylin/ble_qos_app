@@ -1,16 +1,30 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../data/repositories/alert_repository.dart';
 import '../data/repositories/audit_repository.dart';
 
-/// Singleton database instance.
-/// TODO: Phase 2 — migrate to NativeDatabase(File(...)) with path_provider
-/// for persistent storage across app restarts.
+/// Persistent database path (resolved once at startup).
+String? _dbPath;
+
+/// Initialize DB path before creating provider. Call from main().
+Future<void> initDatabasePath() async {
+  final dir = await getApplicationDocumentsDirectory();
+  _dbPath = p.join(dir.path, 'ble_qos.db');
+}
+
+/// Singleton database instance — persistent file storage.
 final databaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase(NativeDatabase.memory());
+  final executor = _dbPath != null
+      ? NativeDatabase(File(_dbPath!))
+      : NativeDatabase.memory(); // fallback for tests
+  final db = AppDatabase(executor);
   ref.onDispose(() => db.close());
   return db;
 });

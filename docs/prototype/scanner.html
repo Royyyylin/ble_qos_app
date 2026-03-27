@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Scanner — Fleet Overview</title>
+<style>
+  /* === App Colors (from app_colors.dart) === */
+  :root {
+    --bg: #0A0E1A;
+    --surface: #141B2D;
+    --surface-var: #1E2740;
+    --primary: #00E5FF;
+    --secondary: #7C4DFF;
+    --warning: #FF6B35;
+    --error: #FF1744;
+    --success: #00E676;
+    --stale: #546E7A;
+    --text-primary: #E0E0E0;
+    --text-secondary: #90A4AE;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* === AppBar === */
+  .appbar {
+    background: var(--surface);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--surface-var);
+  }
+  .appbar h1 { font-size: 18px; font-weight: 600; }
+  .appbar-actions { display: flex; gap: 8px; }
+  .appbar-actions button {
+    background: none; border: none; color: var(--text-primary);
+    font-size: 20px; cursor: pointer; width: 36px; height: 36px;
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; transition: background 0.2s;
+  }
+  .appbar-actions button:hover { background: var(--surface-var); }
+  .appbar-actions button.scanning { color: var(--primary); }
+
+  /* === Fleet Summary Cards === */
+  .fleet-summary { display: flex; gap: 8px; padding: 12px 16px 4px; }
+  .stat-card {
+    flex: 1; background: var(--surface); border-radius: var(--radius);
+    padding: 12px 8px; text-align: center;
+  }
+  .stat-card .count { font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .stat-card .label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* === Search Bar === */
+  .search-bar { padding: 8px 16px; }
+  .search-bar input {
+    width: 100%; padding: 10px 12px 10px 36px;
+    background: var(--surface-var); border: none; border-radius: var(--radius);
+    color: var(--text-primary); font-size: 14px; outline: none;
+  }
+  .search-bar input::placeholder { color: var(--text-secondary); }
+  .search-wrapper { position: relative; }
+  .search-wrapper .icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--text-secondary); font-size: 16px; pointer-events: none;
+  }
+
+  /* === Device List === */
+  .device-list { padding: 0 0 80px; }
+  .group-header {
+    padding: 12px 16px 4px; font-size: 12px; font-weight: 600;
+    color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* === GW Group (collapsible) === */
+  .gw-group { margin: 4px 16px; }
+  .gw-tile {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 12px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: background 0.15s;
+    user-select: none;
+  }
+  .gw-tile:hover { background: var(--surface-var); }
+  .gw-chevron {
+    font-size: 12px; color: var(--text-secondary); transition: transform 0.2s;
+    flex-shrink: 0; width: 16px; text-align: center;
+  }
+  .gw-chevron.open { transform: rotate(90deg); }
+  .ed-count {
+    font-size: 11px; color: var(--text-secondary); background: var(--surface-var);
+    border-radius: 10px; padding: 2px 8px; margin-left: 4px;
+  }
+  .ed-children {
+    overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease;
+    max-height: 0; opacity: 0;
+  }
+  .ed-children.open { max-height: 800px; opacity: 1; }
+  .ed-children .device-tile {
+    margin: 2px 0 2px 22px; border-radius: 8px;
+    border-left: 2px solid var(--surface-var);
+  }
+
+  /* === Device Tile === */
+  .device-tile {
+    margin: 4px 16px; background: var(--surface); border-radius: var(--radius);
+    padding: 12px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .device-tile:hover { background: var(--surface-var); }
+
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.stale { background: var(--warning); }
+  .status-dot.offline { border: 2px solid var(--stale); background: transparent; }
+
+  .device-info { flex: 1; min-width: 0; }
+  .device-name {
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .device-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  .device-trailing { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .rssi { font-size: 13px; font-weight: 500; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .rssi.good { color: var(--success); }
+  .rssi.fair { color: var(--warning); }
+  .rssi.weak { color: var(--error); }
+
+  .connect-btn {
+    background: var(--primary); color: #000; border: none; border-radius: 16px;
+    padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    white-space: nowrap; transition: opacity 0.15s;
+  }
+  .connect-btn:hover { opacity: 0.85; }
+  .connect-btn:active { opacity: 0.7; }
+
+  /* === Connection Overlay === */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; max-width: 420px; margin: 0 auto;
+  }
+  .overlay.active { display: flex; }
+  .overlay .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--surface-var);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .overlay .text { color: #fff; font-size: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* === Empty state === */
+  .empty-state { text-align: center; padding: 60px 16px; color: var(--text-secondary); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* === Rename Dialog === */
+  .dialog-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 200; align-items: center; justify-content: center;
+    max-width: 420px; margin: 0 auto;
+  }
+  .dialog-overlay.active { display: flex; }
+  .dialog-box {
+    background: var(--surface); border-radius: 16px; padding: 24px;
+    width: 90%; max-width: 360px;
+  }
+  .dialog-box h3 { font-size: 18px; margin-bottom: 16px; }
+  .dialog-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .dialog-readonly {
+    font-size: 14px; color: var(--text-primary); font-weight: 500; margin-bottom: 16px;
+  }
+  .dialog-input {
+    width: 100%; padding: 10px 12px; background: var(--surface-var);
+    border: none; border-radius: 8px; color: var(--text-primary);
+    font-size: 14px; outline: none; margin-bottom: 4px;
+  }
+  .dialog-input:focus { box-shadow: 0 0 0 2px var(--primary); }
+  .dialog-counter { font-size: 11px; color: var(--text-secondary); margin-bottom: 16px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .dialog-actions button {
+    padding: 8px 16px; border-radius: 8px; border: none;
+    font-size: 14px; cursor: pointer; font-weight: 500;
+  }
+  .btn-cancel { background: var(--surface-var); color: var(--text-primary); }
+  .btn-save { background: var(--primary); color: #000; }
+
+  /* === Permission Toggle === */
+  .permission-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 6px 16px;
+    background: var(--surface); border-bottom: 1px solid var(--surface-var);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .permission-bar select {
+    background: var(--surface-var); color: var(--text-primary);
+    border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- AppBar -->
+<div class="appbar">
+  <h1>Fleet Overview</h1>
+  <div class="appbar-actions">
+    <button id="scanBtn" class="scanning" title="Stop scan"></button>
+    <button title="Settings">&#9881;</button>
+  </div>
+</div>
+
+<!-- Permission Toggle (prototype only) -->
+<div class="permission-bar">
+  <span>Permission Level:</span>
+  <select id="permLevel">
+    <option value="0">L1 Normal (no rename)</option>
+    <option value="1" selected>L2 Maintenance (can rename)</option>
+    <option value="2">L3 Engineer (can rename)</option>
+  </select>
+</div>
+
+<!-- Fleet Summary -->
+<div class="fleet-summary">
+  <div class="stat-card">
+    <div class="count" style="color: var(--success)" id="countOnline">0</div>
+    <div class="label">Online</div>
+  </div>
+  <div class="stat-card">
+    <div class="count" style="color: var(--warning)" id="countStale">0</div>
+    <div class="label">Stale</div>
+  </div>
+  <div class="stat-card">
+    <div class="count" style="color: var(--error)" id="countOffline">0</div>
+    <div class="label">Offline</div>
+  </div>
+</div>
+
+<!-- Search -->
+<div class="search-bar">
+  <div class="search-wrapper">
+    <span class="icon">&#128269;</span>
+    <input type="text" placeholder="Search devices..." id="searchInput">
+  </div>
+</div>
+
+<!-- Device List (built via safe DOM methods) -->
+<div id="deviceList" class="device-list"></div>
+
+<!-- Connection Overlay -->
+<div class="overlay" id="connectOverlay">
+  <div class="spinner"></div>
+  <div class="text">Connecting...</div>
+</div>
+
+<!-- Rename Dialog -->
+<div class="dialog-overlay" id="renameOverlay">
+  <div class="dialog-box">
+    <h3>Rename Device</h3>
+    <div class="dialog-label">Advertising name</div>
+    <div class="dialog-readonly" id="renameOrigName"></div>
+    <input class="dialog-input" id="renameInput" placeholder="e.g. 3F-會議室-GW" maxlength="20">
+    <div class="dialog-counter" id="renameCounter">0/20 bytes</div>
+    <div class="dialog-actions">
+      <button class="btn-cancel" id="renameCancelBtn">Cancel</button>
+      <button class="btn-save" id="renameSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Mock Data ===
+// gwId links EDs to their parent GW. alias = user-assigned name (nullable).
+var DEVICES = [
+  { id: 'gw-001', name: 'GW-QoS-A1', alias: null, role: 'Gateway', netId: 1, rssi: -45, status: 'online', gwId: null },
+  { id: 'ed-001', name: 'ED-Sensor-01', alias: null, role: 'End Device', netId: 1, rssi: -58, status: 'online', gwId: 'gw-001' },
+  { id: 'ed-002', name: 'ED-Sensor-02', alias: null, role: 'End Device', netId: 1, rssi: -72, status: 'online', gwId: 'gw-001' },
+  { id: 'ed-003', name: 'ED-Actuator-01', alias: null, role: 'End Device', netId: 1, rssi: -65, status: 'stale', gwId: 'gw-001' },
+  { id: 'gw-002', name: 'GW-QoS-B1', alias: null, role: 'Gateway', netId: 2, rssi: -52, status: 'online', gwId: null },
+  { id: 'ed-004', name: 'ED-Sensor-03', alias: null, role: 'End Device', netId: 2, rssi: -81, status: 'stale', gwId: 'gw-002' },
+  { id: 'ed-005', name: 'ED-Monitor-01', alias: null, role: 'End Device', netId: 2, rssi: -67, status: 'online', gwId: 'gw-002' },
+  { id: 'ed-006', name: 'ED-Orphan-01', alias: null, role: 'Unprovisioned', netId: null, rssi: -90, status: 'offline', gwId: null },
+];
+
+function displayName(d) { return d.alias || d.name; }
+function canRename() { return parseInt(document.getElementById('permLevel').value) >= 1; }
+
+// Track collapsed state per GW
+var expandedGWs = {};
+var renameTargetId = null;
+
+let scanning = true;
+
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'className') e.className = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === 'style') Object.assign(e.style, v);
+      else e.setAttribute(k, v);
+    });
+  }
+  if (children) {
+    (Array.isArray(children) ? children : [children]).forEach(c => {
+      if (typeof c === 'string') e.appendChild(document.createTextNode(c));
+      else if (c) e.appendChild(c);
+    });
+  }
+  return e;
+}
+
+function rssiClass(rssi) {
+  if (rssi > -60) return 'good';
+  if (rssi > -80) return 'fair';
+  return 'weak';
+}
+
+function connectDevice(id, name) {
+  var overlay = document.getElementById('connectOverlay');
+  overlay.classList.add('active');
+  setTimeout(function() {
+    overlay.classList.remove('active');
+    alert('Connected to ' + name + '\n\u2192 Device Screen (id: ' + id + ')');
+  }, 1500);
+}
+
+// Long-press support: 500ms hold triggers rename
+function addLongPress(element, deviceId) {
+  var timer = null;
+  element.addEventListener('pointerdown', function(e) {
+    if (!canRename()) return;
+    timer = setTimeout(function() {
+      timer = null;
+      openRenameDialog(deviceId);
+    }, 500);
+  });
+  element.addEventListener('pointerup', function() { clearTimeout(timer); });
+  element.addEventListener('pointerleave', function() { clearTimeout(timer); });
+}
+
+function openRenameDialog(deviceId) {
+  var d = DEVICES.find(function(x) { return x.id === deviceId; });
+  if (!d) return;
+  renameTargetId = deviceId;
+  document.getElementById('renameOrigName').textContent = d.name;
+  var input = document.getElementById('renameInput');
+  input.value = d.alias || '';
+  updateRenameCounter();
+  document.getElementById('renameOverlay').classList.add('active');
+  input.focus();
+}
+
+function updateRenameCounter() {
+  var bytes = new TextEncoder().encode(document.getElementById('renameInput').value.trim()).length;
+  document.getElementById('renameCounter').textContent = bytes + '/20 bytes';
+}
+
+function saveRename() {
+  var alias = document.getElementById('renameInput').value.trim();
+  var bytes = new TextEncoder().encode(alias).length;
+  if (bytes > 20) { alert('Alias too long (max 20 bytes)'); return; }
+
+  var d = DEVICES.find(function(x) { return x.id === renameTargetId; });
+  if (d) { d.alias = alias || null; }
+  document.getElementById('renameOverlay').classList.remove('active');
+  renameTargetId = null;
+  filterDevices();
+}
+
+function buildEdTile(d) {
+  var dot = el('div', { className: 'status-dot ' + d.status });
+  var nameEl = el('div', { className: 'device-name' }, displayName(d));
+  var metaEl = el('div', { className: 'device-meta' }, d.alias ? d.name + ' \u00B7 ' + d.role : d.role);
+  var info = el('div', { className: 'device-info' }, [nameEl, metaEl]);
+
+  var rssiEl = el('span', { className: 'rssi ' + rssiClass(d.rssi) }, d.rssi + ' dBm');
+  var btn = el('button', {
+    className: 'connect-btn',
+    onClick: function(e) { e.stopPropagation(); connectDevice(d.id, displayName(d)); }
+  }, 'Connect');
+  var trailing = el('div', { className: 'device-trailing' }, [rssiEl, btn]);
+
+  var tile = el('div', {
+    className: 'device-tile',
+    onClick: function() { connectDevice(d.id, displayName(d)); }
+  }, [dot, info, trailing]);
+  addLongPress(tile, d.id);
+  return tile;
+}
+
+function buildGwGroup(gw, eds) {
+  var isOpen = expandedGWs[gw.id] || false;
+  var group = el('div', { className: 'gw-group' });
+
+  // GW header tile
+  var chevron = el('span', { className: 'gw-chevron' + (isOpen ? ' open' : '') }, '\u25B6');
+  var dot = el('div', { className: 'status-dot ' + gw.status });
+  var nameEl = el('div', { className: 'device-name' }, displayName(gw));
+  var edCountBadge = el('span', { className: 'ed-count' }, eds.length + ' ED');
+  var metaEl = el('div', { className: 'device-meta' }, [
+    document.createTextNode(gw.alias ? gw.name + ' \u00B7 Gateway' : 'Gateway'),
+    edCountBadge
+  ]);
+  var info = el('div', { className: 'device-info' }, [nameEl, metaEl]);
+
+  var rssiEl = el('span', { className: 'rssi ' + rssiClass(gw.rssi) }, gw.rssi + ' dBm');
+  var btn = el('button', {
+    className: 'connect-btn',
+    onClick: function(e) { e.stopPropagation(); connectDevice(gw.id, displayName(gw)); }
+  }, 'Connect');
+  var trailing = el('div', { className: 'device-trailing' }, [rssiEl, btn]);
+
+  var gwTile = el('div', { className: 'gw-tile' }, [chevron, dot, info, trailing]);
+  addLongPress(gwTile, gw.id);
+
+  // ED children container
+  var edContainer = el('div', { className: 'ed-children' + (isOpen ? ' open' : '') });
+  eds.forEach(function(ed) { edContainer.appendChild(buildEdTile(ed)); });
+
+  // Toggle expand/collapse on GW tile click (not Connect btn)
+  gwTile.addEventListener('click', function() {
+    expandedGWs[gw.id] = !expandedGWs[gw.id];
+    chevron.className = 'gw-chevron' + (expandedGWs[gw.id] ? ' open' : '');
+    if (expandedGWs[gw.id]) {
+      edContainer.classList.add('open');
+    } else {
+      edContainer.classList.remove('open');
+    }
+  });
+
+  group.appendChild(gwTile);
+  group.appendChild(edContainer);
+  return group;
+}
+
+function buildStandaloneTile(d) {
+  var dot = el('div', { className: 'status-dot ' + d.status });
+  var nameEl = el('div', { className: 'device-name' }, displayName(d));
+  var metaText = (d.alias ? d.name + ' \u00B7 ' : '') + d.role + (d.netId ? ' | Net ' + d.netId : '');
+  var metaEl = el('div', { className: 'device-meta' }, metaText);
+  var info = el('div', { className: 'device-info' }, [nameEl, metaEl]);
+
+  var rssiEl = el('span', { className: 'rssi ' + rssiClass(d.rssi) }, d.rssi + ' dBm');
+  var btn = el('button', {
+    className: 'connect-btn',
+    onClick: function(e) { e.stopPropagation(); connectDevice(d.id, displayName(d)); }
+  }, 'Connect');
+  var trailing = el('div', { className: 'device-trailing' }, [rssiEl, btn]);
+
+  var tile = el('div', {
+    className: 'device-tile',
+    onClick: function() { connectDevice(d.id, displayName(d)); }
+  }, [dot, info, trailing]);
+  addLongPress(tile, d.id);
+  return tile;
+}
+
+function renderDevices(devices) {
+  const list = document.getElementById('deviceList');
+  list.textContent = '';
+
+  if (devices.length === 0) {
+    var empty = el('div', { className: 'empty-state' }, [
+      el('div', { className: 'icon' }, '\u{1F4E1}'),
+      el('div', null, scanning ? 'Scanning...' : 'No devices found')
+    ]);
+    list.appendChild(empty);
+    return;
+  }
+
+  // Separate GWs, their EDs, and standalone devices
+  var gws = devices.filter(function(d) { return d.role === 'Gateway'; });
+  var edsByGw = {};
+  var standalone = [];
+
+  devices.forEach(function(d) {
+    if (d.role === 'Gateway') return;
+    if (d.gwId) {
+      (edsByGw[d.gwId] = edsByGw[d.gwId] || []).push(d);
+    } else {
+      standalone.push(d);
+    }
+  });
+
+  // Group by netId
+  var netIds = {};
+  gws.forEach(function(gw) {
+    var key = gw.netId != null ? String(gw.netId) : 'unknown';
+    (netIds[key] = netIds[key] || { gws: [], standalone: [] }).gws.push(gw);
+  });
+  standalone.forEach(function(d) {
+    var key = d.netId != null ? String(d.netId) : 'unknown';
+    (netIds[key] = netIds[key] || { gws: [], standalone: [] }).standalone.push(d);
+  });
+
+  var sortedKeys = Object.keys(netIds).sort(function(a, b) {
+    if (a === 'unknown') return 1;
+    if (b === 'unknown') return -1;
+    return Number(a) - Number(b);
+  });
+
+  sortedKeys.forEach(function(key) {
+    var label = key === 'unknown' ? 'Unknown Network' : 'Network ' + key;
+    list.appendChild(el('div', { className: 'group-header' }, label));
+
+    // GW groups with collapsible EDs
+    netIds[key].gws.forEach(function(gw) {
+      var eds = edsByGw[gw.id] || [];
+      list.appendChild(buildGwGroup(gw, eds));
+    });
+
+    // Standalone devices (no parent GW)
+    netIds[key].standalone.forEach(function(d) {
+      list.appendChild(buildStandaloneTile(d));
+    });
+  });
+
+  // Update counts
+  var online = 0, stale = 0, offline = 0;
+  devices.forEach(function(d) {
+    if (d.status === 'online') online++;
+    else if (d.status === 'stale') stale++;
+    else offline++;
+  });
+  document.getElementById('countOnline').textContent = online;
+  document.getElementById('countStale').textContent = stale;
+  document.getElementById('countOffline').textContent = offline;
+}
+
+function filterDevices() {
+  var q = document.getElementById('searchInput').value.toLowerCase();
+  var filtered = DEVICES.filter(function(d) {
+    return displayName(d).toLowerCase().includes(q) ||
+      d.name.toLowerCase().includes(q) ||
+      d.id.toLowerCase().includes(q) ||
+      d.role.toLowerCase().includes(q);
+  });
+  renderDevices(filtered);
+}
+
+function toggleScan() {
+  scanning = !scanning;
+  const btn = document.getElementById('scanBtn');
+  btn.textContent = scanning ? '\u23F9' : '\u{1F50D}';
+  btn.title = scanning ? 'Stop scan' : 'Start scan';
+  if (scanning) btn.classList.add('scanning');
+  else btn.classList.remove('scanning');
+}
+
+// Init
+document.getElementById('scanBtn').textContent = '\u23F9';
+document.getElementById('searchInput').addEventListener('input', filterDevices);
+document.getElementById('scanBtn').addEventListener('click', toggleScan);
+document.querySelector('[title="Settings"]').addEventListener('click', function() {
+  alert('\u2192 Settings screen');
+});
+document.getElementById('renameInput').addEventListener('input', updateRenameCounter);
+document.getElementById('renameCancelBtn').addEventListener('click', function() {
+  document.getElementById('renameOverlay').classList.remove('active');
+  renameTargetId = null;
+});
+document.getElementById('renameSaveBtn').addEventListener('click', saveRename);
+renderDevices(DEVICES);
+</script>
+</body>
+</html>

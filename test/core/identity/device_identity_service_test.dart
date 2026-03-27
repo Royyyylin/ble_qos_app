@@ -6,6 +6,7 @@ import 'package:ble_qos_app/core/identity/identity_repository.dart';
 /// In-memory mock for IdentityRepository.
 class FakeIdentityRepository implements IdentityRepository {
   final _store = <String, DeviceIdentity>{};
+  final _aliases = <String, String>{};
 
   @override
   Future<String?> findStableIdByMac(String mac) async {
@@ -27,6 +28,21 @@ class FakeIdentityRepository implements IdentityRepository {
 
   @override
   Future<List<DeviceIdentity>> getAll() async => _store.values.toList();
+
+  @override
+  Future<void> setAlias(String stableId, String? alias) async {
+    if (alias != null && alias.isNotEmpty) {
+      _aliases[stableId] = alias;
+    } else {
+      _aliases.remove(stableId);
+    }
+  }
+
+  @override
+  Future<String?> getAlias(String stableId) async => _aliases[stableId];
+
+  @override
+  Future<Map<String, String>> getAllAliases() async => Map.of(_aliases);
 }
 
 void main() {
@@ -84,6 +100,43 @@ void main() {
       expect(stableId, isNotEmpty);
       // Second call returns same
       expect(service.resolveOrAssignSync('NEW:MAC'), stableId);
+    });
+
+    test('given_stableId_when_setAlias_then_getAlias_returns_it', () async {
+      await service.initialize();
+      final stableId = await service.resolveOrAssign('AA:BB:CC:DD:EE:FF');
+      await service.setAlias(stableId, '3F-會議室-GW');
+      expect(service.getAlias(stableId), '3F-會議室-GW');
+    });
+
+    test('given_alias_set_when_setAlias_null_then_alias_cleared', () async {
+      await service.initialize();
+      final stableId = await service.resolveOrAssign('AA:BB:CC:DD:EE:FF');
+      await service.setAlias(stableId, 'MyDevice');
+      await service.setAlias(stableId, null);
+      expect(service.getAlias(stableId), isNull);
+    });
+
+    test('given_aliases_persisted_when_initialize_then_cache_populated', () async {
+      await service.initialize();
+      final stableId = await service.resolveOrAssign('AA:BB:CC:DD:EE:FF');
+      await service.setAlias(stableId, 'Persisted-Alias');
+
+      // Create new service instance pointing to same repo
+      final service2 = DeviceIdentityService(repo);
+      await service2.initialize();
+      expect(service2.getAlias(stableId), 'Persisted-Alias');
+    });
+
+    test('getAllAliases returns all cached aliases', () async {
+      await service.initialize();
+      final id1 = await service.resolveOrAssign('AA:BB');
+      final id2 = await service.resolveOrAssign('CC:DD');
+      await service.setAlias(id1, 'Device-A');
+      await service.setAlias(id2, 'Device-B');
+      final all = service.getAllAliases();
+      expect(all[id1], 'Device-A');
+      expect(all[id2], 'Device-B');
     });
   });
 }

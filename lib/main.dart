@@ -25,7 +25,9 @@ final _router = GoRouter(
   ],
 );
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initDatabasePath();
   runApp(const ProviderScope(child: BleQosApp()));
 }
 

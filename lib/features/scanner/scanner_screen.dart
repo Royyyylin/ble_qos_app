@@ -7,14 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../core/auth/permission_guard.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/ble/ble_models.dart';
 import '../../core/ble/ble_scanner.dart';
 import '../../core/ble/ble_connector.dart';
 import '../../core/providers/device_provider.dart';
 import '../../core/providers/ed_roster_provider.dart';
+import '../../core/providers/identity_provider.dart';
 import '../../core/providers/scan_provider.dart';
 import '../../core/theme/app_colors.dart';
 import 'fleet_summary.dart';
+import 'rename_dialog.dart';
 import 'scan_device_tile.dart';
 
 /// Global RouteObserver for scanner scan lifecycle management.
@@ -192,9 +196,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
               tooltip: _scanning ? 'Stop scan' : 'Start scan',
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.push('/settings'),
+          Semantics(
+            identifier: 'settings-btn',
+            label: 'Settings',
+            child: IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => context.push('/settings'),
+            ),
           ),
         ],
       ),
@@ -266,6 +274,29 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
     );
   }
 
+  bool _canRename() {
+    final role = ref.read(authSessionProvider).currentRole;
+    return PermissionGuard.canWrite(role, GattAction.deviceAlias);
+  }
+
+  Future<void> _onRenameTap(ScannedDevice device) async {
+    final identityService = ref.read(identityServiceProvider);
+    final newAlias = await showRenameDialog(
+      context: context,
+      device: device,
+      identityService: identityService,
+    );
+    if (newAlias != null && mounted) {
+      // Update the scanner's in-memory device with new alias
+      setState(() {
+        final idx = _devices.indexWhere((d) => d.id == device.id);
+        if (idx >= 0) {
+          _devices[idx] = _devices[idx].copyWith(alias: newAlias);
+        }
+      });
+    }
+  }
+
   Widget _buildGroupedList() {
     final groups = _groupedDevices;
     final sortedKeys = groups.keys.toList()
@@ -293,6 +324,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
             ...devices.map((d) => ScanDeviceTile(
               device: d,
               onConnect: () => _onDeviceTap(d),
+              onLongPress: _canRename()
+                  ? () => _onRenameTap(d)
+                  : null,
             )),
           ],
         );

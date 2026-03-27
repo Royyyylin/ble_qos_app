@@ -11,17 +11,21 @@ class ScanDeviceTile extends StatelessWidget {
     super.key,
     required this.device,
     required this.onConnect,
+    this.onLongPress,
   });
 
   final ScannedDevice device;
   final VoidCallback onConnect;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label:
           '${device.displayName}, ${device.roleLabel}, ${device.smoothedRssi.round()} dBm, ${device.status.name}',
-      child: Card(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: ListTile(
           leading: _statusIndicator(),
@@ -41,20 +45,25 @@ class ScanDeviceTile extends StatelessWidget {
               const SizedBox(width: 8),
               SizedBox(
                 height: 32,
-                child: ElevatedButton(
-                  onPressed: onConnect,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    textStyle: const TextStyle(fontSize: 12),
+                child: Semantics(
+                  identifier: 'connect-${device.id}',
+                  label: 'Connect ${device.displayName}',
+                  child: ElevatedButton(
+                    onPressed: onConnect,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
+                    child: const Text('Connect'),
                   ),
-                  child: const Text('Connect'),
                 ),
               ),
             ],
           ),
         ),
+      ),
       ),
     );
   }

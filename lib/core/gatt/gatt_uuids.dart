@@ -25,13 +25,13 @@ class GattUuids {
   static const evt = '6f8a9c13-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const peerRole = '6f8a9c16-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const haHb = '6f8a9c17-2c1a-4b6f-8a11-8ddc1f4e7b25';
-  static const edCount = '6f8a9c18-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const capability = '6f8a9c19-2c1a-4b6f-8a11-8ddc1f4e7b25';
-  static const edList = '6f8a9c1a-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const fwVersion = '6f8a9c1b-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const deviceInfo = '6f8a9c1c-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const gwCfgVersion = '6f8a9c1d-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const cmdResult = '6f8a9c1e-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const cmdV2 = '6f8a9c1f-2c1a-4b6f-8a11-8ddc1f4e7b25';
   static const rosterList = '6f8a9c20-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const capsV2 = '6f8a9c21-2c1a-4b6f-8a11-8ddc1f4e7b25';
+  static const deviceAlias = '6f8a9c22-2c1a-4b6f-8a11-8ddc1f4e7b25';
 }

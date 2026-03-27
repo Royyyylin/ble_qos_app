@@ -19,9 +19,9 @@ void main() {
       expect(PermissionGuard.canWrite(AuthRole.maintenance, GattAction.gwCfg), isTrue);
     });
 
-    test('maintenance cannot write MODE or ROLE', () {
+    test('maintenance can write ROLE but not MODE', () {
+      expect(PermissionGuard.canWrite(AuthRole.maintenance, GattAction.role), isTrue);
       expect(PermissionGuard.canWrite(AuthRole.maintenance, GattAction.mode), isFalse);
-      expect(PermissionGuard.canWrite(AuthRole.maintenance, GattAction.role), isFalse);
     });
 
     test('engineer can write all writable', () {

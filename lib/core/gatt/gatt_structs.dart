@@ -243,25 +243,27 @@ class QosMetricsV2 {
 }
 
 /// qos_ctrl — 9 bytes, CTRL characteristic (0x2A21)
+/// Layout per ble_api.yaml: profile(0) phy(1) tx_power(2) tp_mode(3)
+///   credit_alarm(4) credit_ctrl(5) credit_rs485(6) interval(7-8 u16LE)
 class QosCtrl {
-  final int profile;      // uint8
-  final int phy;          // uint8
-  final int txPower;      // int8
-  final int interval;     // uint16 LE
-  final int creditAlarm;  // uint8
-  final int creditCtrl;   // uint8
-  final int creditRs485;  // uint8
-  final int flags;        // uint8
+  final int profile;      // uint8, offset 0
+  final int phy;          // uint8, offset 1
+  final int txPower;      // int8, offset 2
+  final int tpMode;       // uint8, offset 3 (0=STRESS, 1=PRODUCT)
+  final int creditAlarm;  // uint8, offset 4
+  final int creditCtrl;   // uint8, offset 5
+  final int creditRs485;  // uint8, offset 6
+  final int interval;     // uint16 LE, offset 7
 
   const QosCtrl({
     required this.profile,
     required this.phy,
     required this.txPower,
-    required this.interval,
+    this.tpMode = 1,
     required this.creditAlarm,
     required this.creditCtrl,
     required this.creditRs485,
-    required this.flags,
+    required this.interval,
   });
 
   static const int size = 9;
@@ -275,27 +277,26 @@ class QosCtrl {
       profile: bd.getUint8(0),
       phy: bd.getUint8(1),
       txPower: bd.getInt8(2),
-      interval: bd.getUint16(3, Endian.little),
-      creditAlarm: bd.getUint8(5),
-      creditCtrl: bd.getUint8(6),
-      creditRs485: bd.getUint8(7),
-      flags: bd.getUint8(8),
+      tpMode: bd.getUint8(3),
+      creditAlarm: bd.getUint8(4),
+      creditCtrl: bd.getUint8(5),
+      creditRs485: bd.getUint8(6),
+      interval: bd.getUint16(7, Endian.little),
     );
   }
 
-  /// Serialize to 9-byte payload for CTRL characteristic write.
-  /// Byte layout mirrors fromBytes() field order exactly.
+  /// Serialize to 9-byte payload per ble_api.yaml wire_format.
   Uint8List toBytes() {
     final data = Uint8List(size);
     final bd = ByteData.sublistView(data);
     bd.setUint8(0, profile);
     bd.setUint8(1, phy);
     bd.setInt8(2, txPower);
-    bd.setUint16(3, interval, Endian.little);
-    bd.setUint8(5, creditAlarm);
-    bd.setUint8(6, creditCtrl);
-    bd.setUint8(7, creditRs485);
-    bd.setUint8(8, flags);
+    bd.setUint8(3, tpMode);
+    bd.setUint8(4, creditAlarm);
+    bd.setUint8(5, creditCtrl);
+    bd.setUint8(6, creditRs485);
+    bd.setUint16(7, interval, Endian.little);
     return data;
   }
 }
@@ -354,7 +355,7 @@ class QosEvtV1 {
   final int id;
   final int v0;
   final int v1;
-  final int seq;     // uint16 LE
+  final int seq;     // uint8, offset 4 (per-type drop detection)
 
   const QosEvtV1({
     required this.type,
@@ -380,7 +381,7 @@ class QosEvtV1 {
       id: bd.getUint8(1),
       v0: bd.getUint8(2),
       v1: bd.getUint8(3),
-      seq: bd.getUint16(4, Endian.little),
+      seq: bd.getUint8(4),
     );
   }
 }

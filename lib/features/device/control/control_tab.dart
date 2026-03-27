@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ble_qos_app/core/auth/permission_guard.dart';
 import 'package:ble_qos_app/core/ble/ble_connector.dart';
 import 'package:ble_qos_app/core/ble/ble_gatt.dart';
+import 'package:ble_qos_app/core/ble/manufacturer_data.dart';
 import 'package:ble_qos_app/core/gatt/gatt_structs.dart';
 import 'package:ble_qos_app/core/gatt/gatt_uuids.dart';
 import 'package:ble_qos_app/core/providers/auth_provider.dart';
+import 'package:ble_qos_app/core/providers/metrics_provider.dart';
 import 'package:ble_qos_app/core/theme/app_colors.dart';
 
 /// QoS profile definitions matching firmware enum.
@@ -50,15 +52,16 @@ class _ControlTabState extends ConsumerState<ControlTab> {
 
     setState(() => _writing = true);
 
+    // Read current device state to preserve phy/txPower/interval — only change profile
+    final currentStatus = ref.read(statusStreamProvider).valueOrNull;
     final ctrl = QosCtrl(
       profile: _selectedProfile,
-      phy: 2,
-      txPower: 0,
-      interval: 80,
+      phy: currentStatus?.phy ?? 1,
+      txPower: currentStatus?.txPower ?? 0,
       creditAlarm: 0,
       creditCtrl: 0,
       creditRs485: 0,
-      flags: 0,
+      interval: currentStatus?.interval ?? 24,
     );
 
     try {
@@ -135,7 +138,102 @@ class _ControlTabState extends ConsumerState<ControlTab> {
               ),
             ),
           ),
+          const SizedBox(height: 24),
+
+          // ROLE write — maintenance-safe config surface (spec §5 C2)
+          if (PermissionGuard.canWrite(
+              ref.watch(authSessionProvider).currentRole, GattAction.role))
+            _RoleSelector(onWrite: _writeRole),
         ],
+      ),
+    );
+  }
+
+  Future<void> _writeRole(int roleValue) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm ROLE Write'),
+        content: const Text('Writing ROLE will reboot the device.\nThe BLE connection will be lost.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Write & Reboot'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final connector = ref.read(bleConnectorProvider);
+      final gatt = BleGatt(connector);
+      await gatt.write(GattUuids.role, [roleValue]);
+      if (mounted) _showSnackBar('ROLE written — device will reboot');
+    } catch (e) {
+      if (mounted) _showSnackBar('ROLE write failed: $e');
+    }
+  }
+}
+
+class _RoleSelector extends StatefulWidget {
+  final Future<void> Function(int roleValue) onWrite;
+  const _RoleSelector({required this.onWrite});
+
+  @override
+  State<_RoleSelector> createState() => _RoleSelectorState();
+}
+
+class _RoleSelectorState extends State<_RoleSelector> {
+  String _selected = 'Gateway';
+
+  static const _roles = [
+    (value: ManufacturerData.roleGateway, label: 'Gateway'),
+    (value: ManufacturerData.roleEndDevice, label: 'End Device'),
+    (value: ManufacturerData.roleCentralController, label: 'Central Controller'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Device Role', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            const Text(
+              'Warning: writing ROLE triggers device reboot',
+              style: TextStyle(color: AppColors.warning, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selected,
+              decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+              items: _roles.map((r) => DropdownMenuItem(value: r.label, child: Text(r.label))).toList(),
+              onChanged: (v) { if (v != null) setState(() => _selected = v); },
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final role = _roles.firstWhere((r) => r.label == _selected);
+                  widget.onWrite(role.value);
+                },
+                icon: const Icon(Icons.memory),
+                label: const Text('Write Role'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

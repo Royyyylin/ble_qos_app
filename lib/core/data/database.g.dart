@@ -926,6 +926,15 @@ class $DeviceIdentitiesTable extends DeviceIdentities
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
+  static const VerificationMeta _aliasMeta = const VerificationMeta('alias');
+  @override
+  late final GeneratedColumn<String> alias = GeneratedColumn<String>(
+    'alias',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -938,7 +947,7 @@ class $DeviceIdentitiesTable extends DeviceIdentities
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [stableId, mac, createdAt];
+  List<GeneratedColumn> get $columns => [stableId, mac, alias, createdAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -967,6 +976,12 @@ class $DeviceIdentitiesTable extends DeviceIdentities
     } else if (isInserting) {
       context.missing(_macMeta);
     }
+    if (data.containsKey('alias')) {
+      context.handle(
+        _aliasMeta,
+        alias.isAcceptableOrUnknown(data['alias']!, _aliasMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -992,6 +1007,10 @@ class $DeviceIdentitiesTable extends DeviceIdentities
         DriftSqlType.string,
         data['${effectivePrefix}mac'],
       )!,
+      alias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alias'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
@@ -1012,11 +1031,15 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
   /// Platform BLE remote identifier (MAC on Android, UUID on iOS).
   final String mac;
 
+  /// User-assigned alias (stored locally, synced from GATT DEVICE_ALIAS).
+  final String? alias;
+
   /// Timestamp when identity was first assigned (epoch ms).
   final int createdAt;
   const DeviceIdentity({
     required this.stableId,
     required this.mac,
+    this.alias,
     required this.createdAt,
   });
   @override
@@ -1024,6 +1047,9 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
     final map = <String, Expression>{};
     map['stable_id'] = Variable<String>(stableId);
     map['mac'] = Variable<String>(mac);
+    if (!nullToAbsent || alias != null) {
+      map['alias'] = Variable<String>(alias);
+    }
     map['created_at'] = Variable<int>(createdAt);
     return map;
   }
@@ -1032,6 +1058,9 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
     return DeviceIdentitiesCompanion(
       stableId: Value(stableId),
       mac: Value(mac),
+      alias: alias == null && nullToAbsent
+          ? const Value.absent()
+          : Value(alias),
       createdAt: Value(createdAt),
     );
   }
@@ -1044,6 +1073,7 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
     return DeviceIdentity(
       stableId: serializer.fromJson<String>(json['stableId']),
       mac: serializer.fromJson<String>(json['mac']),
+      alias: serializer.fromJson<String?>(json['alias']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
     );
   }
@@ -1053,20 +1083,27 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
     return <String, dynamic>{
       'stableId': serializer.toJson<String>(stableId),
       'mac': serializer.toJson<String>(mac),
+      'alias': serializer.toJson<String?>(alias),
       'createdAt': serializer.toJson<int>(createdAt),
     };
   }
 
-  DeviceIdentity copyWith({String? stableId, String? mac, int? createdAt}) =>
-      DeviceIdentity(
-        stableId: stableId ?? this.stableId,
-        mac: mac ?? this.mac,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  DeviceIdentity copyWith({
+    String? stableId,
+    String? mac,
+    Value<String?> alias = const Value.absent(),
+    int? createdAt,
+  }) => DeviceIdentity(
+    stableId: stableId ?? this.stableId,
+    mac: mac ?? this.mac,
+    alias: alias.present ? alias.value : this.alias,
+    createdAt: createdAt ?? this.createdAt,
+  );
   DeviceIdentity copyWithCompanion(DeviceIdentitiesCompanion data) {
     return DeviceIdentity(
       stableId: data.stableId.present ? data.stableId.value : this.stableId,
       mac: data.mac.present ? data.mac.value : this.mac,
+      alias: data.alias.present ? data.alias.value : this.alias,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1076,36 +1113,41 @@ class DeviceIdentity extends DataClass implements Insertable<DeviceIdentity> {
     return (StringBuffer('DeviceIdentity(')
           ..write('stableId: $stableId, ')
           ..write('mac: $mac, ')
+          ..write('alias: $alias, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(stableId, mac, createdAt);
+  int get hashCode => Object.hash(stableId, mac, alias, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DeviceIdentity &&
           other.stableId == this.stableId &&
           other.mac == this.mac &&
+          other.alias == this.alias &&
           other.createdAt == this.createdAt);
 }
 
 class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
   final Value<String> stableId;
   final Value<String> mac;
+  final Value<String?> alias;
   final Value<int> createdAt;
   final Value<int> rowid;
   const DeviceIdentitiesCompanion({
     this.stableId = const Value.absent(),
     this.mac = const Value.absent(),
+    this.alias = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeviceIdentitiesCompanion.insert({
     required String stableId,
     required String mac,
+    this.alias = const Value.absent(),
     required int createdAt,
     this.rowid = const Value.absent(),
   }) : stableId = Value(stableId),
@@ -1114,12 +1156,14 @@ class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
   static Insertable<DeviceIdentity> custom({
     Expression<String>? stableId,
     Expression<String>? mac,
+    Expression<String>? alias,
     Expression<int>? createdAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (stableId != null) 'stable_id': stableId,
       if (mac != null) 'mac': mac,
+      if (alias != null) 'alias': alias,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1128,12 +1172,14 @@ class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
   DeviceIdentitiesCompanion copyWith({
     Value<String>? stableId,
     Value<String>? mac,
+    Value<String?>? alias,
     Value<int>? createdAt,
     Value<int>? rowid,
   }) {
     return DeviceIdentitiesCompanion(
       stableId: stableId ?? this.stableId,
       mac: mac ?? this.mac,
+      alias: alias ?? this.alias,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1147,6 +1193,9 @@ class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
     }
     if (mac.present) {
       map['mac'] = Variable<String>(mac.value);
+    }
+    if (alias.present) {
+      map['alias'] = Variable<String>(alias.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
@@ -1162,6 +1211,7 @@ class DeviceIdentitiesCompanion extends UpdateCompanion<DeviceIdentity> {
     return (StringBuffer('DeviceIdentitiesCompanion(')
           ..write('stableId: $stableId, ')
           ..write('mac: $mac, ')
+          ..write('alias: $alias, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3040,6 +3090,7 @@ typedef $$DeviceIdentitiesTableCreateCompanionBuilder =
     DeviceIdentitiesCompanion Function({
       required String stableId,
       required String mac,
+      Value<String?> alias,
       required int createdAt,
       Value<int> rowid,
     });
@@ -3047,6 +3098,7 @@ typedef $$DeviceIdentitiesTableUpdateCompanionBuilder =
     DeviceIdentitiesCompanion Function({
       Value<String> stableId,
       Value<String> mac,
+      Value<String?> alias,
       Value<int> createdAt,
       Value<int> rowid,
     });
@@ -3067,6 +3119,11 @@ class $$DeviceIdentitiesTableFilterComposer
 
   ColumnFilters<String> get mac => $composableBuilder(
     column: $table.mac,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get alias => $composableBuilder(
+    column: $table.alias,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3095,6 +3152,11 @@ class $$DeviceIdentitiesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get alias => $composableBuilder(
+    column: $table.alias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3115,6 +3177,9 @@ class $$DeviceIdentitiesTableAnnotationComposer
 
   GeneratedColumn<String> get mac =>
       $composableBuilder(column: $table.mac, builder: (column) => column);
+
+  GeneratedColumn<String> get alias =>
+      $composableBuilder(column: $table.alias, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3159,11 +3224,13 @@ class $$DeviceIdentitiesTableTableManager
               ({
                 Value<String> stableId = const Value.absent(),
                 Value<String> mac = const Value.absent(),
+                Value<String?> alias = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeviceIdentitiesCompanion(
                 stableId: stableId,
                 mac: mac,
+                alias: alias,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -3171,11 +3238,13 @@ class $$DeviceIdentitiesTableTableManager
               ({
                 required String stableId,
                 required String mac,
+                Value<String?> alias = const Value.absent(),
                 required int createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => DeviceIdentitiesCompanion.insert(
                 stableId: stableId,
                 mac: mac,
+                alias: alias,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

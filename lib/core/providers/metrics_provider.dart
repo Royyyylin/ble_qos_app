@@ -7,11 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ble/ble_connector.dart';
 import '../ble/ble_gatt.dart';
 import '../ble/ble_models.dart';
+import '../gatt/caps_v2.dart';
 import '../gatt/cmd_v2_service.dart';
 import '../gatt/gatt_structs.dart';
 import '../gatt/gatt_uuids.dart';
 import 'device_provider.dart';
 import 'ed_roster_provider.dart';
+import 'identity_provider.dart';
 
 /// Parse [data] with [parser], accepting data.length >= [expectedSize].
 /// Returns null if data is too short.
@@ -89,18 +91,25 @@ final statusStreamProvider = StreamProvider.autoDispose<QosStatus>((ref) async* 
     debugPrint('[METRICS] STATUS subscribe for edStatusMap failed: $e');
   }
 
-  // Poll full 13-byte STATUS every 2s
+  // Poll full 13-byte STATUS every 2s.
+  // Keep last valid (non-zero) reading — firmware sometimes returns 0 between updates.
+  QosStatus lastValid = const QosStatus();
   while (true) {
     try {
       final data = await gatt.read(GattUuids.status);
       if (data.length >= QosStatus.indexedSize) {
         final status = QosStatus.parse(data);
-        debugPrint('[METRICS] STATUS poll: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} jit=${status.jitter}');
-        yield status;
+        debugPrint('[METRICS] STATUS poll: rssi=${status.rssi} pdr=${status.pdr} lat=${status.latency} len=${data.length}');
+        if (status.rssi != 0 || status.pdr != 0 || status.latency != 0) {
+          lastValid = status;
+        }
+        if (lastValid.rssi != 0 || lastValid.pdr != 0 || lastValid.latency != 0) {
+          yield lastValid;
+        }
       }
     } catch (e) {
       debugPrint('[METRICS] STATUS poll read failed: $e');
-      return; // Stop polling if read fails (disconnected)
+      return;
     }
     await Future.delayed(_statusPollInterval);
     if (connector.state != BleConnectionState.connected) return;
@@ -172,6 +181,25 @@ final cmdV2ServiceProvider = Provider.autoDispose<CmdV2Service>((ref) {
   return service;
 });
 
+/// Read CAPS_V2 from GATT (CBOR map). Falls back to empty CapsV2 if not available.
+final capsV2Provider = FutureProvider.autoDispose<CapsV2>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return const CapsV2();
+
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+
+  try {
+    final data = await gatt.read(GattUuids.capsV2);
+    final caps = CapsV2.fromBytes(data);
+    debugPrint('[CAPS_V2] proto=${caps.protoVer} maxEd=${caps.maxEd} hasHa=${caps.hasHa} haState=${caps.haStateLabel}');
+    return caps;
+  } catch (e) {
+    debugPrint('[CAPS_V2] read failed (falling back to defaults): $e');
+    return const CapsV2();
+  }
+});
+
 /// Read FW_VERSION from GATT (one-shot, static).
 final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
   final device = ref.watch(connectedDeviceProvider);
@@ -189,6 +217,35 @@ final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
     }
   } catch (e) {
     debugPrint('[DEVICE] FW_VERSION read failed: $e');
+  }
+  return null;
+});
+
+/// Device alias — reads from local DB cache (Central authority).
+/// GATT DEVICE_ALIAS is a fallback only, not the primary source.
+final deviceAliasProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final device = ref.watch(connectedDeviceProvider);
+  if (device == null) return null;
+
+  final identityService = ref.read(identityServiceProvider);
+
+  // Primary: local DB cache (synced from Central)
+  final cached = identityService.getAlias(device.id);
+  if (cached != null) return cached;
+
+  // Fallback: try GATT DEVICE_ALIAS (if characteristic exists on device)
+  final connector = ref.watch(bleConnectorProvider);
+  final gatt = BleGatt(connector);
+  try {
+    final data = await gatt.read(GattUuids.deviceAlias);
+    final alias = String.fromCharCodes(data).trim();
+    if (alias.isNotEmpty) {
+      debugPrint('[DEVICE] ALIAS fallback from GATT: "$alias"');
+      await identityService.setAlias(device.id, alias);
+      return alias;
+    }
+  } catch (_) {
+    // DEVICE_ALIAS characteristic may not exist — not an error
   }
   return null;
 });
