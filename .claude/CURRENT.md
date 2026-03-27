@@ -1,6 +1,6 @@
 # BLE QoS App — Current State
 
-**最後更新：** 2026-03-26
+**最後更新：** 2026-03-27
 
 ## 架構決策 — 6/6 全部定案 + 架構對齊完成
 
@@ -20,13 +20,15 @@
 - [x] BLE lifecycle: 2-stage TTL + disconnect on leave/background
 - [x] Maestro 安裝 + Semantics identifiers
 - [x] 241 tests, 0 analyze warnings
-- [x] Device Alias: DB schema v3 + identity service + GATT UUID + rename dialog + HTML prototype
+- [x] Device Alias: DB schema v3 + identity service + GATT fallback + rename dialog (Central authority)
+- [x] HTML Prototype: Scanner + Device Screen (5 tabs) + Roster per-ED metrics (方案 B)
+- [x] App Scope 定案: `docs/specs/app-scope.md` — 邊界、責任、契約
 
 ## 下一步
 
-1. 韌體 STATUS 長時間回 0 問題 — 等韌體診斷
-2. PR #10 merge 到 main
-3. 實機驗證 persistent DB
+1. 實機驗證 persistent DB
+2. HTML prototype → Flutter 遷移（Scanner + Device Screen）
+3. Central API 認證方式確定後，App sync client 實作
 4. Maestro YAML flow 取代 adb tap
 5. PinValidator 整合（Phase 2）
 
