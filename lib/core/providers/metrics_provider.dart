@@ -221,28 +221,31 @@ final fwVersionProvider = FutureProvider.autoDispose<FwVersion?>((ref) async {
   return null;
 });
 
-/// Read DEVICE_ALIAS from GATT after connection. Syncs to local DB cache.
-/// Returns the alias string, or null if not set on device.
+/// Device alias — reads from local DB cache (Central authority).
+/// GATT DEVICE_ALIAS is a fallback only, not the primary source.
 final deviceAliasProvider = FutureProvider.autoDispose<String?>((ref) async {
   final device = ref.watch(connectedDeviceProvider);
   if (device == null) return null;
 
+  final identityService = ref.read(identityServiceProvider);
+
+  // Primary: local DB cache (synced from Central)
+  final cached = identityService.getAlias(device.id);
+  if (cached != null) return cached;
+
+  // Fallback: try GATT DEVICE_ALIAS (if characteristic exists on device)
   final connector = ref.watch(bleConnectorProvider);
   final gatt = BleGatt(connector);
-
   try {
     final data = await gatt.read(GattUuids.deviceAlias);
     final alias = String.fromCharCodes(data).trim();
-    debugPrint('[DEVICE] ALIAS: "${alias.isEmpty ? "(empty)" : alias}"');
-
     if (alias.isNotEmpty) {
-      // Sync to local DB so Scanner can display it while disconnected
-      final identityService = ref.read(identityServiceProvider);
+      debugPrint('[DEVICE] ALIAS fallback from GATT: "$alias"');
       await identityService.setAlias(device.id, alias);
       return alias;
     }
-  } catch (e) {
-    debugPrint('[DEVICE] ALIAS read failed (char may not exist yet): $e');
+  } catch (_) {
+    // DEVICE_ALIAS characteristic may not exist — not an error
   }
   return null;
 });

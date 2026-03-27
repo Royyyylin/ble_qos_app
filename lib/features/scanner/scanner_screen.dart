@@ -280,13 +280,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> with RouteAware {
   }
 
   Future<void> _onRenameTap(ScannedDevice device) async {
-    final connector = ref.read(bleConnectorProvider);
     final identityService = ref.read(identityServiceProvider);
     final newAlias = await showRenameDialog(
       context: context,
       device: device,
       identityService: identityService,
-      connector: connector,
     );
     if (newAlias != null && mounted) {
       // Update the scanner's in-memory device with new alias

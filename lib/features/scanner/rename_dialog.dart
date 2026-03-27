@@ -2,29 +2,26 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../core/ble/ble_connector.dart';
-import '../../core/ble/ble_gatt.dart';
 import '../../core/ble/ble_models.dart';
-import '../../core/gatt/gatt_uuids.dart';
 import '../../core/identity/device_identity_service.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Max alias length in bytes (UTF-8). Matches firmware DEVICE_ALIAS characteristic size.
-const _maxAliasBytes = 20;
+/// Max alias length in bytes (UTF-8).
+/// Central authority has no MTU limit; 32B ≈ 10 CJK chars, enough for site labels.
+const _maxAliasBytes = 32;
 
 /// Show rename dialog for a device. Returns the new alias if confirmed, null if cancelled.
+/// Writes to local DB only (Central sync is a separate concern).
 Future<String?> showRenameDialog({
   required BuildContext context,
   required ScannedDevice device,
   required DeviceIdentityService identityService,
-  required BleConnector connector,
 }) {
   return showDialog<String>(
     context: context,
     builder: (ctx) => _RenameDialog(
       device: device,
       identityService: identityService,
-      connector: connector,
     ),
   );
 }
@@ -33,12 +30,10 @@ class _RenameDialog extends StatefulWidget {
   const _RenameDialog({
     required this.device,
     required this.identityService,
-    required this.connector,
   });
 
   final ScannedDevice device;
   final DeviceIdentityService identityService;
-  final BleConnector connector;
 
   @override
   State<_RenameDialog> createState() => _RenameDialogState();
@@ -77,28 +72,13 @@ class _RenameDialogState extends State<_RenameDialog> {
       _error = null;
     });
 
-    try {
-      // Write to GATT if connected
-      if (widget.connector.state == BleConnectionState.connected) {
-        final gatt = BleGatt(widget.connector);
-        await gatt.write(GattUuids.deviceAlias, utf8.encode(alias));
-      }
+    // Write to local DB (Central sync is a separate concern)
+    await widget.identityService.setAlias(
+      widget.device.id,
+      alias.isEmpty ? null : alias,
+    );
 
-      // Update local DB cache
-      await widget.identityService.setAlias(
-        widget.device.id,
-        alias.isEmpty ? null : alias,
-      );
-
-      if (mounted) Navigator.of(context).pop(alias.isEmpty ? null : alias);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _error = 'Write failed: $e';
-        });
-      }
-    }
+    if (mounted) Navigator.of(context).pop(alias.isEmpty ? null : alias);
   }
 
   @override
@@ -128,7 +108,7 @@ class _RenameDialogState extends State<_RenameDialog> {
           TextField(
             controller: _controller,
             autofocus: true,
-            maxLength: 20,
+            maxLength: 32,
             decoration: InputDecoration(
               labelText: 'Alias',
               hintText: 'e.g. 3F-會議室-GW',
