@@ -23,11 +23,23 @@
 - [x] Device Alias: DB schema v3 + identity service + GATT fallback + rename dialog (Central authority)
 - [x] HTML Prototype: Scanner + Device Screen (5 tabs) + Roster per-ED metrics (方案 B)
 - [x] App Scope 定案: `docs/specs/app-scope.md` — 邊界、責任、契約
+- [x] Profile-aware state models: `lib/core/telemetry/` — TelemetryValueState 5 態 + MetricValue + TelemetrySnapshot + EdDeviceState + SyncState + CentralAuthState
+
+## Firmware P0 同步（2026-03-28）
+
+- 韌體已完成 P0/P1 payload 分級 + golden byte tests + P1 metrics trial integration
+- 下一步：P0 event-driven trial（heartbeat/disconnect/reconnect）
+- **App 假設已同步：**
+  - `msg_seq` 不是全 family 共用強一致序列
+  - `P0 ed_hash(2B)` 不可當 canonical identity
+  - `boot_id = reset_count` 仍是暫代方案
+  - P0 缺欄位 ≠ error/degraded/down（App 用 `TelemetryValueState.sparse`）
+  - 不假設所有 payload 有完整時間戳或完整 identity
 
 ## 下一步
 
-1. App local models / state skeleton（依 GPT 指令稿）
-2. PR merge: `feat/prototype-roster-dashboard-update` → main
+1. PR merge: `feat/prototype-roster-dashboard-update` → main
+2. HTML prototype → Flutter 遷移
 3. HTML prototype → Flutter 遷移
 4. 實機驗證 persistent DB
 5. Central sync client 對接（等 Central A3 auth 完成後）
