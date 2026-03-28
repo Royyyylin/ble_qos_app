@@ -9,8 +9,6 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/ed_roster_provider.dart';
 import '../../../core/providers/metrics_provider.dart';
 import '../../../core/providers/roster_state_provider.dart';
-import '../../../core/providers/telemetry_state_provider.dart';
-import '../../../core/telemetry/telemetry_value_state.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Zone label from numeric value.
