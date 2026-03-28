@@ -13,6 +13,7 @@ import 'package:ble_qos_app/core/theme/app_colors.dart';
 import 'package:ble_qos_app/core/providers/auth_provider.dart';
 import 'package:ble_qos_app/core/providers/device_provider.dart';
 import 'package:ble_qos_app/core/providers/metrics_provider.dart';
+import 'package:ble_qos_app/core/providers/telemetry_bridge.dart';
 import 'package:ble_qos_app/widgets/connection_state_indicator.dart';
 import 'package:ble_qos_app/widgets/connection_error_screen.dart';
 import 'dashboard/dashboard_tab.dart';
@@ -134,6 +135,9 @@ class _DeviceScreenState extends ConsumerState<DeviceScreen> with WidgetsBinding
 
     // Start PING keep-alive to prevent firmware phone_idle timeout
     ref.watch(pingKeepAliveProvider);
+
+    // Activate telemetry bridge — converts GATT data to profile-aware state
+    ref.watch(telemetryBridgeProvider);
 
     // Get capabilities via GATT read → role fallback negotiation order
     final connDevice = ref.watch(connectedDeviceProvider);

@@ -1,6 +1,6 @@
 # BLE QoS App — Current State
 
-**最後更新：** 2026-03-26
+**最後更新：** 2026-03-28
 
 ## 架構決策 — 6/6 全部定案 + 架構對齊完成
 
@@ -20,15 +20,29 @@
 - [x] BLE lifecycle: 2-stage TTL + disconnect on leave/background
 - [x] Maestro 安裝 + Semantics identifiers
 - [x] 241 tests, 0 analyze warnings
-- [x] Device Alias: DB schema v3 + identity service + GATT UUID + rename dialog + HTML prototype
+- [x] Device Alias: DB schema v3 + identity service + GATT fallback + rename dialog (Central authority)
+- [x] HTML Prototype: Scanner + Device Screen (5 tabs) + Roster per-ED metrics (方案 B)
+- [x] App Scope 定案: `docs/specs/app-scope.md` — 邊界、責任、契約
+- [x] Profile-aware state models: `lib/core/telemetry/` — TelemetryValueState 5 態 + MetricValue + TelemetrySnapshot + EdDeviceState + SyncState + CentralAuthState
+
+## Firmware P0 同步（2026-03-28）
+
+- 韌體已完成 P0/P1 payload 分級 + golden byte tests + P1 metrics trial integration
+- 下一步：P0 event-driven trial（heartbeat/disconnect/reconnect）
+- **App 假設已同步：**
+  - `msg_seq` 不是全 family 共用強一致序列
+  - `P0 ed_hash(2B)` 不可當 canonical identity
+  - `boot_id = reset_count` 仍是暫代方案
+  - P0 缺欄位 ≠ error/degraded/down（App 用 `TelemetryValueState.sparse`）
+  - 不假設所有 payload 有完整時間戳或完整 identity
 
 ## 下一步
 
-1. 韌體 STATUS 長時間回 0 問題 — 等韌體診斷
-2. PR #10 merge 到 main
-3. 實機驗證 persistent DB
-4. Maestro YAML flow 取代 adb tap
-5. PinValidator 整合（Phase 2）
+1. PR merge: `feat/prototype-roster-dashboard-update` → main
+2. HTML prototype → Flutter 遷移
+3. HTML prototype → Flutter 遷移
+4. 實機驗證 persistent DB
+5. Central sync client 對接（等 Central A3 auth 完成後）
 
 ## Backlog
 

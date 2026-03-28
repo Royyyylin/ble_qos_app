@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Roster + Dashboard 整合方案比較</title>
+<style>
+  :root {
+    --bg: #0A0E1A; --surface: #141B2D; --surface-var: #1E2740;
+    --primary: #00E5FF; --secondary: #7C4DFF;
+    --warning: #FF6B35; --error: #FF1744; --success: #00E676;
+    --stale: #546E7A; --text-primary: #E0E0E0; --text-secondary: #90A4AE;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    max-width: 420px; margin: 0 auto; min-height: 100vh;
+  }
+
+  /* === Scheme Selector === */
+  .scheme-bar {
+    display: flex; position: sticky; top: 0; z-index: 20;
+    background: var(--surface); border-bottom: 1px solid var(--surface-var);
+  }
+  .scheme-btn {
+    flex: 1; padding: 12px 8px; text-align: center;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .scheme-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .scheme-panel { display: none; }
+  .scheme-panel.active { display: block; }
+
+  .appbar {
+    background: var(--surface); padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--surface-var);
+  }
+  .appbar .name { font-size: 16px; font-weight: 600; }
+  .appbar .sub { font-size: 11px; color: var(--text-secondary); }
+  .conn-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--success); box-shadow: 0 0 6px var(--success);
+    margin-left: auto;
+  }
+
+  .section-hdr {
+    padding: 12px 16px 6px; font-size: 12px; font-weight: 600;
+    color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* === Shared ED entry === */
+  .ed-entry {
+    margin: 4px 16px; background: var(--surface); border-radius: var(--radius);
+    overflow: hidden; transition: background 0.15s;
+  }
+  .ed-header {
+    padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+  }
+  .ed-header:hover { background: var(--surface-var); }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.registered { background: var(--warning); }
+  .status-dot.empty { border: 2px solid var(--stale); background: transparent; }
+  .ed-info { flex: 1; min-width: 0; }
+  .ed-name { font-size: 14px; font-weight: 600; }
+  .ed-mac { font-size: 11px; color: var(--text-secondary); font-family: 'SF Mono', monospace; }
+  .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .badge.online { background: rgba(0,230,118,0.15); color: var(--success); }
+  .badge.registered { background: rgba(255,107,53,0.15); color: var(--warning); }
+  .mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  /* === Scheme A: Expandable === */
+  .expand-panel {
+    max-height: 0; opacity: 0; overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    border-top: 1px solid transparent;
+  }
+  .expand-panel.open {
+    max-height: 400px; opacity: 1;
+    border-top-color: var(--surface-var);
+  }
+  .metric-grid-sm {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    padding: 12px;
+  }
+  .metric-cell {
+    background: var(--surface-var); border-radius: 8px; padding: 10px;
+  }
+  .metric-cell .label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+  .metric-cell .val {
+    font-size: 20px; font-weight: 700; margin: 2px 0;
+    font-family: 'SF Mono', monospace;
+  }
+  .metric-cell .unit { font-size: 10px; color: var(--text-secondary); }
+  .chevron-a {
+    font-size: 12px; color: var(--text-secondary); transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .chevron-a.open { transform: rotate(90deg); }
+
+  /* === Scheme B: Inline metrics === */
+  .inline-metrics {
+    display: flex; gap: 12px; align-items: baseline;
+  }
+  .inline-metric {
+    font-size: 12px; font-family: 'SF Mono', monospace;
+  }
+  .inline-metric .m-val { font-weight: 600; }
+  .inline-metric .m-unit { color: var(--text-secondary); font-size: 10px; }
+
+  /* === Scheme C: Dropdown selector === */
+  .ed-selector {
+    margin: 12px 16px; padding: 10px 12px;
+    background: var(--surface-var); border: none; border-radius: 8px;
+    color: var(--text-primary); font-size: 14px; width: calc(100% - 32px);
+  }
+  .metric-grid-lg {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    padding: 0 16px 16px;
+  }
+  .metric-card-lg {
+    background: var(--surface); border-radius: var(--radius); padding: 14px;
+  }
+  .metric-card-lg .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-card-lg .val {
+    font-size: 28px; font-weight: 700; margin: 4px 0 2px;
+    font-family: 'SF Mono', monospace;
+  }
+  .metric-card-lg .unit { font-size: 12px; color: var(--text-secondary); }
+  .metric-card-lg.wide { grid-column: span 2; }
+
+  .scheme-label {
+    padding: 12px 16px 4px; font-size: 11px; color: var(--secondary);
+    font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- Scheme selector -->
+<div class="scheme-bar">
+  <button class="scheme-btn active" data-scheme="a">A 展開式</button>
+  <button class="scheme-btn" data-scheme="b">B 列表式</button>
+  <button class="scheme-btn" data-scheme="c">C 選擇器</button>
+</div>
+
+<!-- ==================== SCHEME A ==================== -->
+<div class="scheme-panel active" id="scheme-a">
+  <div class="scheme-label">Roster + 點擊展開完整 metrics</div>
+  <div class="appbar">
+    <div><div class="name">GW-QoS-A1</div><div class="sub">FW 1.2.0 · Up 2h 15m</div></div>
+    <div class="conn-dot"></div>
+  </div>
+  <div class="section-hdr">Firmware Roster (3/4 slots)</div>
+
+  <div class="ed-entry" id="a-ed-0">
+    <div class="ed-header" onclick="toggleA('a-ed-0')">
+      <span class="chevron-a" id="a-ed-0-chev">&#9654;</span>
+      <div class="status-dot online"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Sensor-01</div>
+        <div class="ed-mac">AA:BB:CC:DD:01:01 · Slot 0</div>
+      </div>
+      <span class="badge online">Online</span>
+    </div>
+    <div class="expand-panel" id="a-ed-0-panel">
+      <div class="metric-grid-sm">
+        <div class="metric-cell"><div class="label">RSSI</div><div class="val" style="color:var(--success)">-52</div><div class="unit">dBm</div></div>
+        <div class="metric-cell"><div class="label">PDR</div><div class="val" style="color:var(--success)">99.5</div><div class="unit">%</div></div>
+        <div class="metric-cell"><div class="label">Latency</div><div class="val" style="color:var(--success)">12</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">Jitter</div><div class="val" style="color:var(--warning)">8</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">PHY</div><div class="val" style="color:var(--text-primary)">2M</div><div class="unit"></div></div>
+        <div class="metric-cell"><div class="label">TX Power</div><div class="val" style="color:var(--text-primary)">4</div><div class="unit">dBm</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ed-entry" id="a-ed-1">
+    <div class="ed-header" onclick="toggleA('a-ed-1')">
+      <span class="chevron-a" id="a-ed-1-chev">&#9654;</span>
+      <div class="status-dot online"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Sensor-02</div>
+        <div class="ed-mac">AA:BB:CC:DD:02:02 · Slot 1</div>
+      </div>
+      <span class="badge online">Online</span>
+    </div>
+    <div class="expand-panel" id="a-ed-1-panel">
+      <div class="metric-grid-sm">
+        <div class="metric-cell"><div class="label">RSSI</div><div class="val" style="color:var(--warning)">-67</div><div class="unit">dBm</div></div>
+        <div class="metric-cell"><div class="label">PDR</div><div class="val" style="color:var(--success)">98.2</div><div class="unit">%</div></div>
+        <div class="metric-cell"><div class="label">Latency</div><div class="val" style="color:var(--warning)">18</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">Jitter</div><div class="val" style="color:var(--warning)">11</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">PHY</div><div class="val" style="color:var(--text-primary)">1M</div><div class="unit"></div></div>
+        <div class="metric-cell"><div class="label">TX Power</div><div class="val" style="color:var(--text-primary)">0</div><div class="unit">dBm</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ed-entry" id="a-ed-2">
+    <div class="ed-header" onclick="toggleA('a-ed-2')">
+      <span class="chevron-a" id="a-ed-2-chev">&#9654;</span>
+      <div class="status-dot registered"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Actuator-01</div>
+        <div class="ed-mac">AA:BB:CC:DD:03:03 · Slot 2</div>
+      </div>
+      <span class="badge registered">Registered</span>
+    </div>
+    <div class="expand-panel" id="a-ed-2-panel">
+      <div class="metric-grid-sm">
+        <div class="metric-cell"><div class="label">RSSI</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit">dBm</div></div>
+        <div class="metric-cell"><div class="label">PDR</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit">%</div></div>
+        <div class="metric-cell"><div class="label">Latency</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">Jitter</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit">ms</div></div>
+        <div class="metric-cell"><div class="label">PHY</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit"></div></div>
+        <div class="metric-cell"><div class="label">TX Power</div><div class="val" style="color:var(--text-secondary)">--</div><div class="unit">dBm</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCHEME B ==================== -->
+<div class="scheme-panel" id="scheme-b">
+  <div class="scheme-label">Roster + 每行直接顯示 key metrics</div>
+  <div class="appbar">
+    <div><div class="name">GW-QoS-A1</div><div class="sub">FW 1.2.0 · Up 2h 15m</div></div>
+    <div class="conn-dot"></div>
+  </div>
+  <div class="section-hdr">Firmware Roster (3/4 slots)</div>
+
+  <div class="ed-entry">
+    <div class="ed-header">
+      <div class="status-dot online"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Sensor-01</div>
+        <div class="inline-metrics">
+          <span class="inline-metric"><span class="m-val" style="color:var(--success)">-52</span> <span class="m-unit">dBm</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--success)">99.5</span><span class="m-unit">%</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--success)">12</span><span class="m-unit">ms</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--warning)">8</span><span class="m-unit">ms jit</span></span>
+        </div>
+      </div>
+      <span class="badge online">Online</span>
+    </div>
+  </div>
+
+  <div class="ed-entry">
+    <div class="ed-header">
+      <div class="status-dot online"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Sensor-02</div>
+        <div class="inline-metrics">
+          <span class="inline-metric"><span class="m-val" style="color:var(--warning)">-67</span> <span class="m-unit">dBm</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--success)">98.2</span><span class="m-unit">%</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--warning)">18</span><span class="m-unit">ms</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--warning)">11</span><span class="m-unit">ms jit</span></span>
+        </div>
+      </div>
+      <span class="badge online">Online</span>
+    </div>
+  </div>
+
+  <div class="ed-entry">
+    <div class="ed-header">
+      <div class="status-dot registered"></div>
+      <div class="ed-info">
+        <div class="ed-name">ED-Actuator-01</div>
+        <div class="inline-metrics">
+          <span class="inline-metric"><span class="m-val" style="color:var(--text-secondary)">--</span> <span class="m-unit">dBm</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--text-secondary)">--</span><span class="m-unit">%</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--text-secondary)">--</span><span class="m-unit">ms</span></span>
+          <span class="inline-metric"><span class="m-val" style="color:var(--text-secondary)">--</span><span class="m-unit">ms jit</span></span>
+        </div>
+      </div>
+      <span class="badge registered">Registered</span>
+    </div>
+  </div>
+
+  <div class="ed-entry">
+    <div class="ed-header" style="opacity: 0.4;">
+      <div class="status-dot empty"></div>
+      <div class="ed-info">
+        <div class="ed-name" style="color:var(--text-secondary)">(empty)</div>
+        <div class="ed-mac">Slot 3</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCHEME C ==================== -->
+<div class="scheme-panel" id="scheme-c">
+  <div class="scheme-label">Dashboard + ED 下拉選擇器</div>
+  <div class="appbar">
+    <div><div class="name">GW-QoS-A1</div><div class="sub">FW 1.2.0 · Up 2h 15m</div></div>
+    <div class="conn-dot"></div>
+  </div>
+
+  <select class="ed-selector" id="edSelector">
+    <option value="0">ED-Sensor-01 (Slot 0 · Online)</option>
+    <option value="1">ED-Sensor-02 (Slot 1 · Online)</option>
+    <option value="2">ED-Actuator-01 (Slot 2 · Registered)</option>
+  </select>
+
+  <div class="metric-grid-lg" id="cMetrics">
+    <div class="metric-card-lg"><div class="label">RSSI</div><div class="val" id="c-rssi" style="color:var(--success)">-52</div><div class="unit">dBm</div></div>
+    <div class="metric-card-lg"><div class="label">PDR</div><div class="val" id="c-pdr" style="color:var(--success)">99.5</div><div class="unit">%</div></div>
+    <div class="metric-card-lg"><div class="label">Latency</div><div class="val" id="c-lat" style="color:var(--success)">12</div><div class="unit">ms</div></div>
+    <div class="metric-card-lg"><div class="label">Jitter</div><div class="val" id="c-jit" style="color:var(--warning)">8</div><div class="unit">ms</div></div>
+    <div class="metric-card-lg"><div class="label">PHY</div><div class="val" id="c-phy" style="color:var(--text-primary)">2M</div><div class="unit"></div></div>
+    <div class="metric-card-lg"><div class="label">TX Power</div><div class="val" id="c-tx" style="color:var(--text-primary)">4</div><div class="unit">dBm</div></div>
+    <div class="metric-card-lg wide"><div class="label">Throughput</div><div class="val" id="c-tp" style="color:var(--text-secondary)">N/A</div><div class="unit">TP test not active</div></div>
+  </div>
+</div>
+
+<script>
+// Scheme switcher
+document.querySelectorAll('.scheme-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.scheme-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.scheme-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('scheme-' + btn.getAttribute('data-scheme')).classList.add('active');
+  });
+});
+
+// Scheme A: expand/collapse
+function toggleA(id) {
+  var panel = document.getElementById(id + '-panel');
+  var chev = document.getElementById(id + '-chev');
+  var isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+// Scheme C: ED selector
+var edData = [
+  { rssi: '-52', pdr: '99.5', lat: '12', jit: '8', phy: '2M', tx: '4', tp: 'N/A', rssiC: 'var(--success)', pdrC: 'var(--success)', latC: 'var(--success)', jitC: 'var(--warning)' },
+  { rssi: '-67', pdr: '98.2', lat: '18', jit: '11', phy: '1M', tx: '0', tp: 'N/A', rssiC: 'var(--warning)', pdrC: 'var(--success)', latC: 'var(--warning)', jitC: 'var(--warning)' },
+  { rssi: '--', pdr: '--', lat: '--', jit: '--', phy: '--', tx: '--', tp: '--', rssiC: 'var(--text-secondary)', pdrC: 'var(--text-secondary)', latC: 'var(--text-secondary)', jitC: 'var(--text-secondary)' },
+];
+document.getElementById('edSelector').addEventListener('change', function() {
+  var d = edData[parseInt(this.value)];
+  document.getElementById('c-rssi').textContent = d.rssi; document.getElementById('c-rssi').style.color = d.rssiC;
+  document.getElementById('c-pdr').textContent = d.pdr; document.getElementById('c-pdr').style.color = d.pdrC;
+  document.getElementById('c-lat').textContent = d.lat; document.getElementById('c-lat').style.color = d.latC;
+  document.getElementById('c-jit').textContent = d.jit; document.getElementById('c-jit').style.color = d.jitC;
+  document.getElementById('c-phy').textContent = d.phy;
+  document.getElementById('c-tx').textContent = d.tx;
+  document.getElementById('c-tp').textContent = d.tp;
+});
+</script>
+</body>
+</html>

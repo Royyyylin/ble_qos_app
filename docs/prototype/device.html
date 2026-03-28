@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Device Screen — BLE QoS App</title>
+<style>
+  :root {
+    --bg: #0A0E1A; --surface: #141B2D; --surface-var: #1E2740;
+    --primary: #00E5FF; --secondary: #7C4DFF;
+    --warning: #FF6B35; --error: #FF1744; --success: #00E676;
+    --stale: #546E7A; --text-primary: #E0E0E0; --text-secondary: #90A4AE;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    max-width: 420px; margin: 0 auto; min-height: 100vh;
+  }
+
+  /* === AppBar === */
+  .appbar {
+    background: var(--surface); padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--surface-var);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .back-btn {
+    background: none; border: none; color: var(--text-primary);
+    font-size: 20px; cursor: pointer; padding: 4px;
+  }
+  .appbar-title { flex: 1; }
+  .appbar-title .name { font-size: 16px; font-weight: 600; }
+  .appbar-title .subtitle { font-size: 11px; color: var(--text-secondary); }
+  .conn-indicator {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--success); box-shadow: 0 0 6px var(--success);
+  }
+
+  /* === Session Warning Banner === */
+  .session-banner {
+    display: none; background: rgba(255,107,53,0.15);
+    padding: 8px 16px; align-items: center; gap: 8px; font-size: 13px;
+    color: var(--warning);
+  }
+  .session-banner.active { display: flex; }
+  .session-banner .spacer { flex: 1; }
+  .session-banner button {
+    background: none; border: 1px solid var(--warning); color: var(--warning);
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+
+  /* === Permission Bar (prototype only) === */
+  .permission-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 6px 16px;
+    background: var(--surface); border-bottom: 1px solid var(--surface-var);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .permission-bar select {
+    background: var(--surface-var); color: var(--text-primary);
+    border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  }
+
+  /* === Tabs === */
+  .tab-bar {
+    display: flex; background: var(--surface);
+    border-bottom: 1px solid var(--surface-var);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    flex: 1; min-width: 70px; padding: 10px 8px; text-align: center;
+    font-size: 13px; color: var(--text-secondary); background: none;
+    border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; white-space: nowrap; transition: all 0.2s;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-content { display: none; padding: 16px; min-height: 60vh; }
+  .tab-content.active { display: block; }
+
+  /* === Dashboard (GW Info) === */
+  .gw-info-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 14px; margin-bottom: 8px;
+  }
+  .gw-info-card h3 { font-size: 13px; color: var(--primary); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gw-info-row {
+    display: flex; justify-content: space-between; padding: 6px 0;
+    border-bottom: 1px solid var(--surface-var);
+  }
+  .gw-info-row:last-child { border-bottom: none; }
+  .gw-info-row .gi-label { font-size: 13px; color: var(--text-secondary); }
+  .gw-info-row .gi-value { font-size: 13px; color: var(--text-primary); font-weight: 500; font-family: 'SF Mono', monospace; }
+
+  /* === Roster (per-ED metrics) === */
+  .ed-card {
+    margin: 3px 0; background: var(--surface); border-radius: var(--radius);
+    padding: 8px 10px; border-left: 3px solid transparent;
+  }
+  .ed-card.online { border-left-color: var(--success); }
+  .ed-card.registered { border-left-color: var(--warning); }
+  .ed-card.empty { border-left-color: var(--stale); opacity: 0.4; }
+  .ed-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.registered { background: var(--warning); }
+  .status-dot.empty { border: 2px solid var(--stale); background: transparent; }
+  .ed-name { font-size: 15px; font-weight: 600; flex: 1; }
+  .ed-mac { font-size: 10px; color: var(--text-secondary); font-family: 'SF Mono', monospace; margin-bottom: 4px; }
+  .metrics-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px; margin-top: 3px; }
+  .metrics-row.row3 { grid-template-columns: 1fr 1fr 1fr; }
+  .m-item { background: var(--surface-var); border-radius: 6px; padding: 4px 6px; }
+  .m-label { font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .m-val-row { display: flex; align-items: baseline; gap: 3px; }
+  .m-val { font-size: 22px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1.1; }
+  .m-unit { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .ed-actions { display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end; }
+  .action-btn { background: none; border: 1px solid var(--surface-var); color: var(--text-secondary); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+  .action-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .action-btn.danger:hover { border-color: var(--error); color: var(--error); }
+  .disc-card { margin: 3px 0; background: var(--surface); border-radius: var(--radius); padding: 10px; display: flex; align-items: center; gap: 10px; border-left: 3px solid var(--surface-var); }
+  .disc-info { flex: 1; }
+  .disc-name { font-size: 14px; font-weight: 500; }
+  .disc-meta { font-size: 11px; color: var(--text-secondary); }
+  .add-btn { background: var(--primary); color: #000; border: none; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+
+  /* === Roster section header === */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0 8px; font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .section-header .actions { display: flex; gap: 8px; }
+  .section-header button {
+    background: none; border: none; color: var(--primary);
+    font-size: 16px; cursor: pointer;
+  }
+  .roster-entry {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 12px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .roster-entry .mac {
+    font-family: 'SF Mono', monospace; font-size: 12px; color: var(--text-primary);
+  }
+  .roster-entry .slot-info { font-size: 11px; color: var(--text-secondary); }
+  .roster-entry .entry-info { flex: 1; }
+  .roster-entry .entry-name { font-size: 14px; font-weight: 500; }
+  .state-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .state-badge.online { background: rgba(0,230,118,0.15); color: var(--success); }
+  .state-badge.registered { background: rgba(255,107,53,0.15); color: var(--warning); }
+  .state-badge.empty { background: rgba(84,110,122,0.15); color: var(--stale); }
+  .icon-btn {
+    background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px;
+  }
+  .icon-btn.connect { color: var(--primary); }
+  .icon-btn.remove { color: var(--error); }
+  .icon-btn.add { color: var(--primary); }
+
+  /* === HA === */
+  .ha-standalone {
+    text-align: center; padding: 60px 16px; color: var(--text-secondary);
+  }
+  .ha-standalone .icon { font-size: 48px; margin-bottom: 16px; }
+  .ha-standalone .title {
+    font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;
+  }
+  .info-row {
+    display: flex; justify-content: space-between; padding: 10px 0;
+    border-bottom: 1px solid var(--surface-var);
+  }
+  .info-row .info-label { color: var(--text-secondary); font-size: 13px; }
+  .info-row .info-value { color: var(--primary); font-size: 13px; font-weight: 500; }
+
+  /* === Control === */
+  .control-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 12px;
+  }
+  .control-card h3 { font-size: 14px; margin-bottom: 12px; }
+  .radio-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--surface-var);
+    cursor: pointer;
+  }
+  .radio-option:last-child { border-bottom: none; }
+  .radio-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--text-secondary); position: relative;
+  }
+  .radio-option.selected .radio-dot {
+    border-color: var(--primary);
+  }
+  .radio-option.selected .radio-dot::after {
+    content: ''; position: absolute; inset: 3px;
+    background: var(--primary); border-radius: 50%;
+  }
+  .radio-label { font-size: 14px; }
+  .radio-desc { font-size: 11px; color: var(--text-secondary); }
+  .apply-btn {
+    width: 100%; padding: 12px; background: var(--primary); color: #000;
+    border: none; border-radius: var(--radius); font-size: 14px;
+    font-weight: 600; cursor: pointer; margin-top: 12px;
+  }
+  .apply-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .role-select {
+    width: 100%; padding: 10px; background: var(--surface-var);
+    color: var(--text-primary); border: none; border-radius: 8px;
+    font-size: 14px; margin-bottom: 8px;
+  }
+  .warning-text { font-size: 11px; color: var(--warning); margin-bottom: 8px; }
+  .role-btn {
+    width: 100%; padding: 10px; background: var(--warning); color: #000;
+    border: none; border-radius: var(--radius); font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+
+  /* === Admin === */
+  .admin-tile {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .admin-tile:hover { background: var(--surface-var); }
+  .admin-tile.disabled { opacity: 0.4; cursor: not-allowed; }
+  .admin-tile .tile-icon { font-size: 20px; width: 28px; text-align: center; }
+  .admin-tile .tile-info { flex: 1; }
+  .admin-tile .tile-title { font-size: 14px; font-weight: 500; }
+  .admin-tile .tile-sub { font-size: 11px; color: var(--text-secondary); }
+  .admin-tile .chevron { color: var(--text-secondary); }
+
+  /* === Empty / Placeholder === */
+  .empty-state { text-align: center; padding: 60px 16px; color: var(--text-secondary); }
+
+  /* === Dialog === */
+  .dialog-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 200; align-items: center; justify-content: center;
+    max-width: 420px; margin: 0 auto;
+  }
+  .dialog-overlay.active { display: flex; }
+  .dialog-box {
+    background: var(--surface); border-radius: 16px; padding: 24px;
+    width: 90%; max-width: 360px;
+  }
+  .dialog-box h3 { font-size: 16px; margin-bottom: 12px; }
+  .dialog-input {
+    width: 100%; padding: 10px 12px; background: var(--surface-var);
+    border: none; border-radius: 8px; color: var(--text-primary);
+    font-size: 14px; outline: none; margin-bottom: 12px;
+  }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .dialog-actions button {
+    padding: 8px 16px; border-radius: 8px; border: none;
+    font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  .btn-cancel { background: var(--surface-var); color: var(--text-primary); }
+  .btn-confirm { background: var(--primary); color: #000; }
+  .btn-danger { background: var(--error); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- AppBar -->
+<div class="appbar">
+  <button class="back-btn" id="backBtn">&larr;</button>
+  <div class="appbar-title">
+    <div class="name" id="deviceName">GW-QoS-A1</div>
+    <div class="subtitle" id="deviceSubtitle">FW 1.2.0 · Up 2h 15m</div>
+  </div>
+  <div class="conn-indicator" title="Connected"></div>
+</div>
+
+<!-- Session Warning Banner -->
+<div class="session-banner" id="sessionBanner">
+  <span>&#9201;</span>
+  <span>Session expires in <strong id="sessionTimer">60</strong>s</span>
+  <span class="spacer"></span>
+  <button id="lockNowBtn">Lock Now</button>
+</div>
+
+<!-- Permission Toggle (prototype only) -->
+<div class="permission-bar">
+  <span>Permission:</span>
+  <select id="permLevel">
+    <option value="0">L1 Normal</option>
+    <option value="1">L2 Maintenance</option>
+    <option value="2" selected>L3 Engineer</option>
+  </select>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar" id="tabBar"></div>
+
+<!-- Tab Contents -->
+<div class="tab-content active" id="tab-dashboard">
+  <div class="gw-info-card">
+    <h3>Gateway Info</h3>
+    <div class="gw-info-row"><span class="gi-label">Device Name</span><span class="gi-value">GW-QoS-A1</span></div>
+    <div class="gw-info-row"><span class="gi-label">MAC</span><span class="gi-value">AA:BB:CC:DD:EE:FF</span></div>
+    <div class="gw-info-row"><span class="gi-label">FW Version</span><span class="gi-value">1.2.0+0</span></div>
+    <div class="gw-info-row"><span class="gi-label">Uptime</span><span class="gi-value">2h 15m</span></div>
+    <div class="gw-info-row"><span class="gi-label">Reset Count</span><span class="gi-value">3</span></div>
+    <div class="gw-info-row"><span class="gi-label">Role</span><span class="gi-value">Gateway</span></div>
+  </div>
+  <div class="gw-info-card">
+    <h3>Connection Summary</h3>
+    <div class="gw-info-row"><span class="gi-label">Online EDs</span><span class="gi-value" style="color:var(--success)">4 / 8</span></div>
+    <div class="gw-info-row"><span class="gi-label">Registered</span><span class="gi-value" style="color:var(--warning)">2</span></div>
+    <div class="gw-info-row"><span class="gi-label">Empty Slots</span><span class="gi-value">2</span></div>
+    <div class="gw-info-row"><span class="gi-label">MAX_ED</span><span class="gi-value">8</span></div>
+    <div class="gw-info-row"><span class="gi-label">HA Mode</span><span class="gi-value">Standalone</span></div>
+  </div>
+  <div class="gw-info-card">
+    <h3>GW_CFG</h3>
+    <div class="gw-info-row"><span class="gi-label">TP Mode</span><span class="gi-value">PRODUCT</span></div>
+    <div class="gw-info-row"><span class="gi-label">Phone Log</span><span class="gi-value">Enabled</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit Alarm</span><span class="gi-value">5 pps</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit Ctrl</span><span class="gi-value">10 pps</span></div>
+    <div class="gw-info-row"><span class="gi-label">Credit RS485</span><span class="gi-value">3 pps</span></div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-roster">
+  <div id="rosterContainer"></div>
+</div>
+
+<div class="tab-content" id="tab-ha">
+  <div class="ha-standalone">
+    <div class="icon">&#128718;</div>
+    <div class="title">Standalone Mode</div>
+    <div>This device has no HA peer configured.<br>HA failover requires two paired Gateways.</div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-control">
+  <div class="control-card">
+    <h3>QoS Profile</h3>
+    <div class="radio-option selected" data-profile="0">
+      <div class="radio-dot"></div>
+      <div><div class="radio-label">FAST</div><div class="radio-desc">Low latency, high power</div></div>
+    </div>
+    <div class="radio-option" data-profile="1">
+      <div class="radio-dot"></div>
+      <div><div class="radio-label">BALANCED</div><div class="radio-desc">Default trade-off</div></div>
+    </div>
+    <div class="radio-option" data-profile="2">
+      <div class="radio-dot"></div>
+      <div><div class="radio-label">ROBUST</div><div class="radio-desc">High reliability, higher latency</div></div>
+    </div>
+    <button class="apply-btn" id="applyProfileBtn">Apply Profile</button>
+  </div>
+
+  <div class="control-card" id="roleCard">
+    <h3>Device Role</h3>
+    <select class="role-select" id="roleSelect">
+      <option value="2">Gateway</option>
+      <option value="1">End Device</option>
+      <option value="4">Central Controller</option>
+    </select>
+    <div class="warning-text">Warning: writing ROLE triggers device reboot</div>
+    <button class="role-btn" id="writeRoleBtn">Write Role</button>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-admin">
+  <div class="admin-tile" id="engUnlockTile">
+    <div class="tile-icon" style="color: var(--warning);">&#128274;</div>
+    <div class="tile-info">
+      <div class="tile-title">ENG_UNLOCK</div>
+      <div class="tile-sub">Enter PIN to unlock engineer mode</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+  <div class="admin-tile disabled" id="rebootTile">
+    <div class="tile-icon" style="color: var(--error);">&#8635;</div>
+    <div class="tile-info">
+      <div class="tile-title">CMD Reboot</div>
+      <div class="tile-sub">Reboot the device</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+  <div class="admin-tile disabled" id="modeRoleTile">
+    <div class="tile-icon" style="color: var(--primary);">&#128200;</div>
+    <div class="tile-info">
+      <div class="tile-title">MODE / ROLE</div>
+      <div class="tile-sub">Change operating mode or device role</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+  <div class="admin-tile" id="gwCfgTile">
+    <div class="tile-icon" style="color: var(--primary);">&#9881;</div>
+    <div class="tile-info">
+      <div class="tile-title">GW_CFG Editor</div>
+      <div class="tile-sub">Edit gateway runtime config</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+  <div class="admin-tile disabled" id="pinTile">
+    <div class="tile-icon" style="color: var(--text-secondary);">&#128273;</div>
+    <div class="tile-info">
+      <div class="tile-title">PIN Management</div>
+      <div class="tile-sub">Set new engineer PIN</div>
+    </div>
+    <div class="chevron">&rsaquo;</div>
+  </div>
+</div>
+
+<!-- ENG_UNLOCK Dialog -->
+<div class="dialog-overlay" id="engDialog">
+  <div class="dialog-box">
+    <h3>Engineer Unlock</h3>
+    <input class="dialog-input" id="pinInput" type="password" placeholder="8-digit PIN" maxlength="8">
+    <div class="dialog-actions">
+      <button class="btn-cancel" id="engCancelBtn">Cancel</button>
+      <button class="btn-confirm" id="engConfirmBtn">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reboot Confirm Dialog -->
+<div class="dialog-overlay" id="rebootDialog">
+  <div class="dialog-box">
+    <h3>Confirm Reboot</h3>
+    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">
+      This will reboot the device. The BLE connection will be lost.
+    </p>
+    <div class="dialog-actions">
+      <button class="btn-cancel" id="rebootCancelBtn">Cancel</button>
+      <button class="btn-danger" id="rebootConfirmBtn">Reboot</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var permLevel = 2;
+var engineerUnlocked = false;
+var selectedProfile = 0;
+
+var ALL_TABS = [
+  { id: 'dashboard', label: 'Dashboard', minPerm: 0 },
+  { id: 'roster', label: 'Roster', minPerm: 0 },
+  { id: 'ha', label: 'HA', minPerm: 0 },
+  { id: 'control', label: 'Control', minPerm: 1 },
+  { id: 'admin', label: 'Admin', minPerm: 2 },
+];
+
+function rebuildTabs() {
+  permLevel = parseInt(document.getElementById('permLevel').value);
+  var tabBar = document.getElementById('tabBar');
+  tabBar.textContent = '';
+
+  var visibleTabs = ALL_TABS.filter(function(t) { return permLevel >= t.minPerm; });
+
+  visibleTabs.forEach(function(t, i) {
+    var btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = t.label;
+    btn.setAttribute('data-tab', t.id);
+    btn.addEventListener('click', function() { switchTab(t.id); });
+    tabBar.appendChild(btn);
+  });
+
+  // Hide all tab contents, show first visible
+  ALL_TABS.forEach(function(t) {
+    document.getElementById('tab-' + t.id).classList.remove('active');
+  });
+  if (visibleTabs.length > 0) {
+    document.getElementById('tab-' + visibleTabs[0].id).classList.add('active');
+  }
+
+  // Update admin tile states
+  updateAdminTiles();
+  // Update control tab visibility
+  document.getElementById('roleCard').style.display = permLevel >= 1 ? 'block' : 'none';
+}
+
+function switchTab(tabId) {
+  ALL_TABS.forEach(function(t) {
+    document.getElementById('tab-' + t.id).classList.remove('active');
+  });
+  document.getElementById('tab-' + tabId).classList.add('active');
+
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+  });
+}
+
+function updateAdminTiles() {
+  var isEng = permLevel >= 2 && engineerUnlocked;
+
+  var reboot = document.getElementById('rebootTile');
+  var modeRole = document.getElementById('modeRoleTile');
+  var pin = document.getElementById('pinTile');
+  var unlock = document.getElementById('engUnlockTile');
+
+  reboot.className = 'admin-tile' + (isEng ? '' : ' disabled');
+  modeRole.className = 'admin-tile' + (isEng ? '' : ' disabled');
+  pin.className = 'admin-tile' + (isEng ? '' : ' disabled');
+
+  if (isEng) {
+    unlock.querySelector('.tile-icon').textContent = '\u{1F513}';
+    unlock.querySelector('.tile-icon').style.color = 'var(--success)';
+    unlock.querySelector('.tile-sub').textContent = 'Engineer mode active';
+    unlock.style.opacity = '0.6';
+  } else {
+    unlock.querySelector('.tile-icon').textContent = '\u{1F512}';
+    unlock.querySelector('.tile-icon').style.color = 'var(--warning)';
+    unlock.querySelector('.tile-sub').textContent = 'Enter PIN to unlock engineer mode';
+    unlock.style.opacity = '1';
+  }
+}
+
+// Back button
+document.getElementById('backBtn').addEventListener('click', function() {
+  alert('\u2190 Back to Scanner (Fleet Overview)');
+});
+
+// Permission change
+document.getElementById('permLevel').addEventListener('change', rebuildTabs);
+
+// Profile radio selection
+document.querySelectorAll('.radio-option').forEach(function(opt) {
+  opt.addEventListener('click', function() {
+    document.querySelectorAll('.radio-option').forEach(function(o) { o.classList.remove('selected'); });
+    opt.classList.add('selected');
+    selectedProfile = parseInt(opt.getAttribute('data-profile'));
+  });
+});
+
+// Apply Profile
+document.getElementById('applyProfileBtn').addEventListener('click', function() {
+  if (permLevel < 1) { alert('Permission denied: maintenance role required'); return; }
+  var names = ['FAST', 'BALANCED', 'ROBUST'];
+  alert('GATT CTRL write: profile=' + names[selectedProfile] + '\n\u2192 Applied successfully');
+});
+
+// Write Role
+document.getElementById('writeRoleBtn').addEventListener('click', function() {
+  if (permLevel < 1) { alert('Permission denied: maintenance role required'); return; }
+  var sel = document.getElementById('roleSelect');
+  var name = sel.options[sel.selectedIndex].text;
+  if (confirm('Write ROLE = ' + name + '?\nThis will trigger a device reboot.')) {
+    alert('GATT ROLE write: ' + name + '\nDevice rebooting...');
+  }
+});
+
+// ENG_UNLOCK
+document.getElementById('engUnlockTile').addEventListener('click', function() {
+  if (engineerUnlocked) return;
+  document.getElementById('engDialog').classList.add('active');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinInput').focus();
+});
+document.getElementById('engCancelBtn').addEventListener('click', function() {
+  document.getElementById('engDialog').classList.remove('active');
+});
+document.getElementById('engConfirmBtn').addEventListener('click', function() {
+  var pin = document.getElementById('pinInput').value;
+  if (pin.length < 8) { alert('PIN must be 8 digits'); return; }
+  document.getElementById('engDialog').classList.remove('active');
+  engineerUnlocked = true;
+  updateAdminTiles();
+
+  // Show session banner
+  var banner = document.getElementById('sessionBanner');
+  banner.classList.add('active');
+  var seconds = 300;
+  var timer = setInterval(function() {
+    seconds--;
+    document.getElementById('sessionTimer').textContent = seconds;
+    if (seconds <= 0) { clearInterval(timer); engineerUnlocked = false; banner.classList.remove('active'); updateAdminTiles(); }
+  }, 1000);
+});
+
+// Lock Now
+document.getElementById('lockNowBtn').addEventListener('click', function() {
+  engineerUnlocked = false;
+  document.getElementById('sessionBanner').classList.remove('active');
+  updateAdminTiles();
+});
+
+// Reboot
+document.getElementById('rebootTile').addEventListener('click', function() {
+  if (!engineerUnlocked) return;
+  document.getElementById('rebootDialog').classList.add('active');
+});
+document.getElementById('rebootCancelBtn').addEventListener('click', function() {
+  document.getElementById('rebootDialog').classList.remove('active');
+});
+document.getElementById('rebootConfirmBtn').addEventListener('click', function() {
+  document.getElementById('rebootDialog').classList.remove('active');
+  alert('CMD Reboot sent.\nDevice rebooting...');
+});
+
+// GW_CFG
+document.getElementById('gwCfgTile').addEventListener('click', function() {
+  alert('GW_CFG Editor\n\nTP Mode: 1 (PRODUCT)\nPhone Log: 1\nFlags: 0x00\nCredit Alarm: 5 pps\nCredit Ctrl: 10 pps\nCredit RS485: 3 pps');
+});
+
+// PIN Management
+document.getElementById('pinTile').addEventListener('click', function() {
+  if (!engineerUnlocked) return;
+  alert('PIN Management\n\nNew PIN: ********\nConfirm: ********\n\n\u2192 PIN updated');
+});
+
+// MODE/ROLE tile
+document.getElementById('modeRoleTile').addEventListener('click', function() {
+  if (!engineerUnlocked) return;
+  alert('MODE/ROLE Editor\n\nMODE: ENGINEER (1)\nROLE: Gateway (2)');
+});
+
+// Roster actions
+document.querySelectorAll('.icon-btn.connect').forEach(function(btn) {
+  btn.addEventListener('click', function() { alert('CMD_V2: CONNECT_ED sent'); });
+});
+document.querySelectorAll('.icon-btn.remove').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (confirm('Remove this ED from roster?')) alert('CMD_V2: ROSTER_REMOVE sent');
+  });
+});
+document.querySelectorAll('.icon-btn.add').forEach(function(btn) {
+  btn.addEventListener('click', function() { alert('CMD_V2: ROSTER_ADD sent'); });
+});
+
+// Info buttons
+document.querySelectorAll('.info-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { alert(btn.title); });
+});
+
+// === Roster per-ED metrics ===
+var ROSTER_DATA = [
+  { slot: 0, mac: 'AA:BB:CC:DD:01:01', name: 'ED-Sensor-01', state: 'online', rssi: -52, pdr: 99.5, lat: 12, jit: 8, phy: '2M', tx: 4, tp: 0 },
+  { slot: 1, mac: 'AA:BB:CC:DD:02:02', name: 'ED-Sensor-02', state: 'online', rssi: -67, pdr: 98.2, lat: 18, jit: 11, phy: '1M', tx: 0, tp: 0 },
+  { slot: 2, mac: 'AA:BB:CC:DD:03:03', name: 'ED-Actuator-01', state: 'online', rssi: -78, pdr: 95.1, lat: 25, jit: 15, phy: '1M', tx: -4, tp: 0 },
+  { slot: 3, mac: 'AA:BB:CC:DD:04:04', name: 'ED-Monitor-01', state: 'online', rssi: -55, pdr: 99.8, lat: 10, jit: 5, phy: '2M', tx: 4, tp: 0 },
+  { slot: 4, mac: 'AA:BB:CC:DD:05:05', name: 'ED-Sensor-03', state: 'registered', rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 5, mac: 'AA:BB:CC:DD:06:06', name: 'ED-Sensor-04', state: 'registered', rssi: null, pdr: null, lat: null, jit: null, phy: null, tx: null, tp: null },
+  { slot: 6, mac: null, name: null, state: 'empty' },
+  { slot: 7, mac: null, name: null, state: 'empty' },
+];
+var DISC_DATA = [
+  { name: 'ED-Sensor-05', rssi: -71, mac: '11:22:33:44:55:66' },
+  { name: 'ED-Monitor-02', rssi: -83, mac: '11:22:33:44:77:88' },
+];
+
+function cRssi(v) { if (v == null) return 'var(--text-secondary)'; if (v > -60) return 'var(--success)'; if (v > -80) return 'var(--warning)'; return 'var(--error)'; }
+function cPdr(v) { if (v == null) return 'var(--text-secondary)'; if (v >= 99) return 'var(--success)'; if (v >= 95) return 'var(--warning)'; return 'var(--error)'; }
+function cLat(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 15) return 'var(--success)'; if (v <= 30) return 'var(--warning)'; return 'var(--error)'; }
+function cJit(v) { if (v == null) return 'var(--text-secondary)'; if (v <= 10) return 'var(--success)'; if (v <= 20) return 'var(--warning)'; return 'var(--error)'; }
+function fv(v) { return v != null ? String(v) : '--'; }
+
+function ce(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function tx(tag, cls, text, color) { var e = ce(tag, cls); e.appendChild(document.createTextNode(text)); if (color) e.style.color = color; return e; }
+
+function mItem(label, value, unit, color) {
+  var item = ce('div', 'm-item');
+  item.appendChild(tx('div', 'm-label', label));
+  var row = ce('div', 'm-val-row');
+  row.appendChild(tx('span', 'm-val', value, color));
+  if (unit) row.appendChild(tx('span', 'm-unit', unit));
+  item.appendChild(row);
+  return item;
+}
+
+function buildRosterUI() {
+  var container = document.getElementById('rosterContainer');
+  container.textContent = '';
+
+  // Section header
+  var hdr = ce('div', 'section-header');
+  var onlineCount = ROSTER_DATA.filter(function(e) { return e.state === 'online'; }).length;
+  hdr.appendChild(tx('span', null, 'Firmware Roster (' + onlineCount + '/8 online)'));
+  container.appendChild(hdr);
+
+  ROSTER_DATA.forEach(function(ed) {
+    var card = ce('div', 'ed-card ' + ed.state);
+    if (ed.state === 'empty') {
+      var top = ce('div', 'ed-top');
+      top.appendChild(ce('div', 'status-dot empty'));
+      top.appendChild(tx('div', 'ed-name', '(empty)', 'var(--text-secondary)'));
+      top.appendChild(tx('span', 'badge ' + ed.state, 'Slot ' + ed.slot));
+      card.appendChild(top);
+      container.appendChild(card);
+      return;
+    }
+
+    var top = ce('div', 'ed-top');
+    top.appendChild(ce('div', 'status-dot ' + ed.state));
+    top.appendChild(tx('div', 'ed-name', ed.name));
+    var badgeLabel = ed.state === 'online' ? 'Online' : 'Registered';
+    top.appendChild(tx('span', 'badge ' + ed.state, badgeLabel));
+    card.appendChild(top);
+    card.appendChild(tx('div', 'ed-mac', ed.mac + ' \u00B7 Slot ' + ed.slot));
+
+    var row1 = ce('div', 'metrics-row');
+    row1.appendChild(mItem('RSSI', fv(ed.rssi), 'dBm', cRssi(ed.rssi)));
+    row1.appendChild(mItem('PDR', fv(ed.pdr), '%', cPdr(ed.pdr)));
+    row1.appendChild(mItem('Lat', fv(ed.lat), 'ms', cLat(ed.lat)));
+    row1.appendChild(mItem('Jit', fv(ed.jit), 'ms', cJit(ed.jit)));
+    card.appendChild(row1);
+
+    var row2 = ce('div', 'metrics-row row3');
+    row2.appendChild(mItem('PHY', fv(ed.phy), '', ed.phy ? 'var(--text-primary)' : 'var(--text-secondary)'));
+    row2.appendChild(mItem('TX', fv(ed.tx), 'dBm', ed.tx != null ? 'var(--text-primary)' : 'var(--text-secondary)'));
+    var tpVal = ed.tp > 0 ? String(ed.tp) : 'N/A';
+    row2.appendChild(mItem('TP', tpVal, ed.tp > 0 ? 'B/s' : '', 'var(--text-secondary)'));
+    card.appendChild(row2);
+
+    var actions = ce('div', 'ed-actions');
+    if (ed.state === 'registered') {
+      var connBtn = tx('button', 'action-btn', '\u{1F517} Connect');
+      connBtn.addEventListener('click', function() { alert('CMD_V2: CONNECT_ED ' + ed.mac); });
+      actions.appendChild(connBtn);
+    }
+    var rmBtn = tx('button', 'action-btn danger', '\u274C Remove');
+    rmBtn.addEventListener('click', function() {
+      if (confirm('Remove ' + ed.name + ' from roster?')) alert('CMD_V2: ROSTER_REMOVE slot ' + ed.slot);
+    });
+    actions.appendChild(rmBtn);
+    card.appendChild(actions);
+
+    container.appendChild(card);
+  });
+
+  // Discovered EDs
+  var discHdr = ce('div', 'section-header');
+  discHdr.style.marginTop = '8px';
+  discHdr.appendChild(tx('span', null, 'Discovered EDs (' + DISC_DATA.length + ')'));
+  container.appendChild(discHdr);
+
+  DISC_DATA.forEach(function(d) {
+    var card = ce('div', 'disc-card');
+    var info = ce('div', 'disc-info');
+    info.appendChild(tx('div', 'disc-name', d.name));
+    info.appendChild(tx('div', 'disc-meta', d.rssi + ' dBm \u00B7 ' + d.mac));
+    card.appendChild(info);
+    var btn = tx('button', 'add-btn', '+ Add');
+    btn.addEventListener('click', function() { alert('CMD_V2: ROSTER_ADD ' + d.mac); });
+    card.appendChild(btn);
+    container.appendChild(card);
+  });
+}
+
+// Init
+buildRosterUI();
+rebuildTabs();
+</script>
+</body>
+</html>
