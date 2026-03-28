@@ -8,6 +8,9 @@ import '../../../core/gatt/gatt_structs.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/ed_roster_provider.dart';
 import '../../../core/providers/metrics_provider.dart';
+import '../../../core/providers/roster_state_provider.dart';
+import '../../../core/providers/telemetry_state_provider.dart';
+import '../../../core/telemetry/telemetry_value_state.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Zone label from numeric value.
@@ -281,8 +284,8 @@ class EdRosterTab extends ConsumerWidget {
   }
 }
 
-/// Tile for GATT ROSTER_LIST entries.
-class _RosterSlotTile extends StatelessWidget {
+/// Tile for GATT ROSTER_LIST entries — now with profile-aware telemetry.
+class _RosterSlotTile extends ConsumerWidget {
   final RosterEntry entry;
   final VoidCallback? onRemove;
   final VoidCallback? onConnect;
@@ -290,52 +293,89 @@ class _RosterSlotTile extends StatelessWidget {
   const _RosterSlotTile({required this.entry, this.onRemove, this.onConnect});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = entry.isOnline;
+    final edMac = entry.address.toUpperCase();
+    final edId = 'ed:$edMac';
+
+    // Get profile-aware telemetry from new state model
+    final rosterItem = ref.watch(edDetailProvider(edId));
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          isOnline ? Icons.link : Icons.link_off,
-          color: isOnline ? AppColors.success : AppColors.stale,
-          size: 20,
-        ),
-        title: Text(
-          entry.address,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontFamily: AppColors.monoFontFamily,
-            fontSize: 14,
-          ),
-        ),
-        subtitle: Text(
-          'Slot ${entry.logicalSlot} · ${entry.stateLabel}',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (onConnect != null) ...[
-              IconButton(
-                icon: const Icon(Icons.link, size: 20),
-                color: AppColors.primary,
-                tooltip: 'Connect ED',
-                onPressed: onConnect,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 8),
+            // Header row: name + status badge + actions
+            Row(
+              children: [
+                Icon(
+                  isOnline ? Icons.link : Icons.link_off,
+                  color: isOnline ? AppColors.success : AppColors.stale,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rosterItem?.displayName ?? entry.address,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      Text(
+                        '$edMac · Slot ${entry.logicalSlot}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 11,
+                          fontFamily: AppColors.monoFontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _stateBadge(entry),
+                if (rosterItem != null && rosterItem.isSparseProfile) ...[
+                  const SizedBox(width: 6),
+                  _profileBadge(),
+                ],
+              ],
+            ),
+            // Telemetry metrics row — only if online
+            if (isOnline && rosterItem != null) ...[
+              const SizedBox(height: 8),
+              _MetricsRow(item: RosterItemState(rosterItem)),
             ],
-            _stateBadge(entry),
-            if (onRemove != null) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline, size: 20),
-                color: AppColors.error,
-                tooltip: 'Remove from roster',
-                onPressed: onRemove,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+            // Actions row
+            if (onConnect != null || onRemove != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (onConnect != null)
+                    TextButton.icon(
+                      icon: const Icon(Icons.link, size: 16),
+                      label: const Text('Connect', style: TextStyle(fontSize: 12)),
+                      onPressed: onConnect,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                  if (onRemove != null)
+                    TextButton.icon(
+                      icon: const Icon(Icons.remove_circle_outline, size: 16),
+                      label: const Text('Remove', style: TextStyle(fontSize: 12)),
+                      onPressed: onRemove,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                ],
               ),
             ],
           ],
@@ -361,6 +401,92 @@ class _RosterSlotTile extends StatelessWidget {
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
+  }
+
+  Widget _profileBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.secondary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'P0',
+        style: TextStyle(color: AppColors.secondary, fontSize: 10, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// Compact per-ED metrics row — profile-aware, sparse-safe.
+class _MetricsRow extends StatelessWidget {
+  final RosterItemState item;
+  const _MetricsRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _metric('RSSI', item.rssiDisplay, 'dBm', _rssiColor(item.device.telemetry?.rssi)),
+        _metric('PDR', item.pdrDisplay, '%', _pdrColor(item.device.telemetry?.pdr)),
+        _metric('Lat', item.latencyDisplay, 'ms', _latColor(item.device.telemetry?.latency)),
+        _metric('Jit', item.jitterDisplay, 'ms', _jitColor(item.device.telemetry?.jitter)),
+      ],
+    );
+  }
+
+  Widget _metric(String label, String value, String unit, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: AppColors.monoFontFamily)),
+              const SizedBox(width: 2),
+              if (value != '--') Text(unit, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Color _rssiColor(dynamic m) {
+    if (m == null || m.value == null) return AppColors.textSecondary;
+    final v = m.value as int;
+    if (v > -60) return AppColors.success;
+    if (v > -80) return AppColors.warning;
+    return AppColors.error;
+  }
+
+  static Color _pdrColor(dynamic m) {
+    if (m == null || m.value == null) return AppColors.textSecondary;
+    final v = m.value as double;
+    if (v >= 99) return AppColors.success;
+    if (v >= 95) return AppColors.warning;
+    return AppColors.error;
+  }
+
+  static Color _latColor(dynamic m) {
+    if (m == null || m.value == null) return AppColors.textSecondary;
+    final v = m.value as int;
+    if (v <= 15) return AppColors.success;
+    if (v <= 30) return AppColors.warning;
+    return AppColors.error;
+  }
+
+  static Color _jitColor(dynamic m) {
+    if (m == null || m.value == null) return AppColors.textSecondary;
+    final v = m.value as int;
+    if (v <= 10) return AppColors.success;
+    if (v <= 20) return AppColors.warning;
+    return AppColors.error;
   }
 }
 
